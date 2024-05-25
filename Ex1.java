@@ -1,15 +1,15 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Ex1 {
     public static void main(String[] args) {
         try {
-            BayesianNetwork network = XMLParser.parseXML("alarm_net.xml");
+            BayesianNetwork network = XMLParser.parse("alarm_net.xml");
             List<String> queries = readQueries("input.txt");
             List<String> results = processQueries(network, queries);
             writeToOutputFile("output.txt", results);
@@ -20,52 +20,60 @@ public class Ex1 {
 
     private static List<String> processQueries(BayesianNetwork network, List<String> queries) {
         List<String> results = new ArrayList<>();
-        for (String query : queries) {
-            if (query.contains("|") && !query.startsWith("P")) { // Ensuring it's a Bayes Ball query
-                results.add(processBayesBallQuery(network, query));
-            } else if (query.startsWith("P")) { // For Variable Elimination queries
-                results.add(processVariableEliminationQuery(network, query));
-            } else {
-                System.out.println("Unhandled query format: " + query);
+        VariableElimination ve = new VariableElimination(network);
+        BayesBall bb = new BayesBall(network);
+
+        try (FileOutput fileOutput = new FileOutput("output.txt")) {
+            for (String query : queries) {
+                if (query.startsWith("P(")) {
+                    String result = processVariableEliminationQuery(ve, query);
+                    results.add(result);
+                } else if (query.contains("-")) {
+                    String result = processBayesBallQuery(bb, query);
+                    results.add(result);
+                } else {
+                    System.out.println("Unhandled query format: " + query);
+                }
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+
         return results;
     }
 
-
-    private static String processBayesBallQuery(BayesianNetwork network, String query) {
+    private static String processBayesBallQuery(BayesBall bb, String query) {
         String[] parts = query.split("\\|");
         String[] nodes = parts[0].split("-");
-
-        // Check that there are at least two nodes specified in the query
-        if (nodes.length < 2) {
-            throw new IllegalArgumentException("Query must include two nodes separated by '-': " + query);
+        Map<String, String> evidenceMap = new HashMap<>();
+        if (parts.length > 1) {
+            String[] evidenceParts = parts[1].split(",");
+            for (String evidence : evidenceParts) {
+                String[] ev = evidence.split("=");
+                evidenceMap.put(ev[0], ev[1]);
+            }
         }
-
-        Set<String> evidence = new HashSet<>();
-        if (parts.length > 1 && !parts[1].trim().isEmpty()) {
-            // Process the evidence part only if it exists and is not empty
-            evidence = getEvidence(parts);
-        }
-
-        boolean independent = network.getBayesBall().query(nodes[0], nodes[1], evidence);
+        boolean independent = bb.isIndependent(nodes[0], nodes[1], evidenceMap);
         return independent ? "yes" : "no";
     }
 
-
-
-    private static String processVariableEliminationQuery(BayesianNetwork network, String query) {
-        QueryResult queryResult = parseVariableEliminationQuery(query);
-        double result = network.getVariableElimination().computeProbability(
-                queryResult.hiddenVariables, queryResult.evidence, queryResult.queryVariable);
-        return String.format("%.5f,%d,%d", result, network.getVariableElimination().getAdditionOperations(),
-                network.getVariableElimination().getMultiplicationOperations());
+    private static String processVariableEliminationQuery(VariableElimination ve, String query) {
+        String[] parts = query.split("\\|");
+        String queryPart = parts[0].substring(2, parts[0].length() - 1);
+        String[] evidenceParts = parts[1].split(",");
+        Map<String, String> evidenceMap = new HashMap<>();
+        for (String evidence : evidenceParts) {
+            String[] ev = evidence.split("=");
+            evidenceMap.put(ev[0], ev[1]);
+        }
+        Object[] result = ve.query(evidenceMap, queryPart, '2');
+        return String.format("%.5f,%d,%d", (double)result[0], (int)result[1], (int)result[2]);
     }
 
     private static List<String> readQueries(String filePath) {
         List<String> queries = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            br.readLine(); // Skip the first line (XML file name)
+            br.readLine();      // We will Skip the first line in the XML file (XML file name)
             String line;
             while ((line = br.readLine()) != null) {
                 queries.add(line);
@@ -76,53 +84,13 @@ public class Ex1 {
         return queries;
     }
 
-    private static Set<String> getEvidence(String[] parts) {
-        Set<String> evidence = new HashSet<>();
-        if (parts.length > 1 && !parts[1].trim().isEmpty()) {
-            for (String ev : parts[1].split(",")) {
-                String[] evSplit = ev.trim().split("=");
-                if (evSplit.length > 1) {
-                    evidence.add(evSplit[0]);
-                }
-            }
-        }
-        return evidence;
-    }
-
-
-    private static QueryResult parseVariableEliminationQuery(String query) {
-        String[] parts = query.split("\\) ");
-        String probPart = parts[0].substring(2);
-        String[] probParts = probPart.split("\\|");
-        String queryVariable = probParts[0].substring(0, probParts[0].indexOf("="));
-        Map<String, String> evidence = new HashMap<>();
-        if (probParts.length > 1) {
-            for (String ev : probParts[1].split(",")) {
-                String[] evSplit = ev.trim().split("=");
-                evidence.put(evSplit[0], evSplit[1]);
-            }
-        }
-        List<String> hiddenVariables = Arrays.asList(parts[1].trim().split("-"));
-        return new QueryResult(queryVariable, evidence, hiddenVariables);
-    }
-
     private static void writeToOutputFile(String filePath, List<String> results) {
-        try {
-            Files.write(Paths.get(filePath), results, StandardCharsets.UTF_8);
+        try (FileOutput fileOutput = new FileOutput(filePath)) {
+            for (String result : results) {
+                fileOutput.writeLine(result);
+            }
         } catch (IOException e) {
             e.printStackTrace();
-        }
-    }
-
-    private static class QueryResult {
-        String queryVariable;
-        Map<String, String> evidence;
-        List<String> hiddenVariables;
-
-        QueryResult(String queryVariable, Map<String, String> evidence, List<String> hiddenVariables) {
-            this.queryVariable = queryVariable;
-            this.evidence = evidence;
-            this.hiddenVariables = hiddenVariables;
         }
     }
 }

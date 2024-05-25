@@ -1,84 +1,110 @@
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class VariableElimination {
-    private Map<String, Variable> variables;
-    private Map<String, CPT> cpts;
-    private int additionOperations = 0;
-    private int multiplicationOperations = 0;
+    private BayesianNetwork network;
+    private int multiplications;
+    private int additions;
 
-    public VariableElimination(Map<String, Variable> variables, Map<String, CPT> cpts) {
-        this.variables = variables;
-        this.cpts = cpts;
+    public VariableElimination(BayesianNetwork network) {
+        this.network = network;
+        this.multiplications = 0;
+        this.additions = 0;
     }
 
-    public double computeProbability(List<String> hiddenVars, Map<String, String> evidence, String target) {
-        System.out.println("Starting Variable Elimination:");
+    public Object[] query(Map<String, String> evidence, String queryVariable, char algorithm) {
+        System.out.println("Query: " + queryVariable + ", Evidence: " + evidence);
         List<Factor> factors = initializeFactors(evidence);
+        System.out.println("Initial Factors: " + factors);
 
-        // Eliminate each hidden variable
-        for (String var : hiddenVars) {
-            System.out.println("Eliminating Variable: " + var);
-            List<Factor> relevantFactors = factors.stream()
-                    .filter(f -> f.getVariables().contains(var))
-                    .collect(Collectors.toList());
-            Factor merged = mergeFactors(relevantFactors, var);
-            System.out.println("Merged Factor for " + var + ": " + merged);
-
-            factors.removeAll(relevantFactors);
-            if (merged != null) factors.add(merged);
+        List<Variable> hidden = getSortedHiddenVariables(evidence, queryVariable, algorithm);
+        for (Variable variable : hidden) {
+            factors = sumOut(variable.getName(), factors);
+            System.out.println("Factors after summing out " + variable.getName() + ": " + factors);
         }
 
-        // Merge remaining factors
-        System.out.println("Merging remaining factors");
+        Factor result = combineFactors(factors);
+        System.out.println("Final Combined Factor: " + result);
+        double probability = normalize(result.getProbability(queryVariable));
+        System.out.println("Probability: " + probability);
 
-        Factor finalFactor = mergeFactors(factors, null);  // No variable to eliminate, just combine them
-        double probability = finalFactor.getProbability(target, evidence.get(target));
-        System.out.println("Final Probability: " + probability);
-        return probability;
+        return new Object[] { probability, this.additions, this.multiplications };
+    }
+
+    private List<Variable> getSortedHiddenVariables(Map<String, String> evidence, String queryVariable, char algorithm) {
+        List<Variable> hidden = new ArrayList<>();
+        for (Variable var : this.network.getVariables()) {
+            if (!evidence.containsKey(var.getName()) && !var.getName().equals(queryVariable)) {
+                hidden.add(var);
+            }
+        }
+
+        hidden.sort(Comparator.comparingInt(this::getFactorCount).reversed());
+        return hidden;
+    }
+
+    private int getFactorCount(Variable variable) {
+        int count = 0;
+        for (CPT cpt : this.network.getCPTs().values()) {
+            if (cpt.getParents().contains(variable)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private List<Factor> initializeFactors(Map<String, String> evidence) {
-        List<Factor> factors = cpts.values().stream()
-                .map(cpt -> {
-                    System.out.println("Initializing Factor from CPT:");
-                    cpt.printCPT();  // Print the CPT details
-                    return new Factor(cpt.getVariables(), cpt.computeProbabilityTable());
-                })
-                .collect(Collectors.toList());
-
-        System.out.println("Applying evidence to Factors:");
-        return factors.stream()
-                .map(factor -> {
-                    Factor result = factor.applyEvidence(evidence);
-                    System.out.println("After applying evidence: " + result);
-                    return result;
-                })
-                .collect(Collectors.toList());
+        List<Factor> factors = new ArrayList<>();
+        for (Variable var : this.network.getVariables()) {
+            factors.add(new Factor(var, evidence));
+        }
+        return factors;
     }
 
-    private Factor mergeFactors(List<Factor> factors, String eliminateVar) {
-        System.out.println("Factors before merging: " + factors);
+    private List<Factor> sumOut(String varName, List<Factor> factors) {
+        List<Factor> newFactors = new ArrayList<>();
+        Factor merged = null;
+
+        for (Factor factor : factors) {
+            if (factor.contains(varName)) {
+                if (merged == null) {
+                    merged = factor;
+                } else {
+                    merged = merged.multiply(factor);
+                    this.multiplications++;
+                }
+            } else {
+                newFactors.add(factor);
+            }
+        }
+
+        if (merged != null) {
+            Factor summedFactor = merged.sumOut(varName);
+            newFactors.add(summedFactor);
+            this.additions++;
+        }
+
+        return newFactors;
+    }
+
+    private Factor combineFactors(List<Factor> factors) {
         Factor result = factors.get(0);
         for (int i = 1; i < factors.size(); i++) {
-            result = result.combine(factors.get(i), eliminateVar);
-            System.out.println("Intermediate merged factor: " + result);
-
-            if (eliminateVar != null) {
-                result = result.sumOut(eliminateVar);
-                additionOperations++;  // Assuming summing out involves additions
-                System.out.println("After summing out " + eliminateVar + ": " + result);
-
-            }
+            result = result.multiply(factors.get(i));
+            this.multiplications++;
         }
         return result;
     }
 
-    public int getAdditionOperations() {
-        return additionOperations;
+    private double normalize(double probability) {
+        double denominator = probability + (1 - probability);
+        return probability / denominator;
     }
 
-    public int getMultiplicationOperations() {
-        return multiplicationOperations;
+    public int getMultiplications() {
+        return this.multiplications;
+    }
+
+    public int getAdditions() {
+        return this.additions;
     }
 }

@@ -1,15 +1,17 @@
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class Variable {
-    private final String name;
-    private final List<String> outcomes;
-    private final List<Variable> parents = new ArrayList<>();
-    private final List<Variable> children = new ArrayList<>();
+    private String name;
+    private List<String> outcomes;
+    private List<Variable> parents;
+    private List<Variable> children;
+    private double[] probabilities;
 
     public Variable(String name, List<String> outcomes) {
         this.name = name;
-        this.outcomes = new ArrayList<>(outcomes);
+        this.outcomes = outcomes;
+        this.parents = new ArrayList<>();
+        this.children = new ArrayList<>();
     }
 
     public String getName() {
@@ -17,13 +19,19 @@ public class Variable {
     }
 
     public List<String> getOutcomes() {
-        return new ArrayList<>(outcomes);
+        return outcomes;
     }
 
-    public void addParent(Variable parent) {
-        if (!parents.contains(parent)) {
-            parents.add(parent);
-        }
+    public void setParents(List<Variable> parents) {
+        this.parents = parents;
+    }
+
+    public List<Variable> getParents() {
+        return parents;
+    }
+
+    public List<Variable> getChildren() {
+        return children;
     }
 
     public void addChild(Variable child) {
@@ -32,34 +40,32 @@ public class Variable {
         }
     }
 
-    public boolean hasMultipleParents() {
-        return parents.size() > 1;
+    public void setProbabilities(String[] probabilities) {
+        this.probabilities = Arrays.stream(probabilities)
+                .mapToDouble(Double::parseDouble)
+                .toArray();
     }
 
-    public List<String> getParentNames() {
-        return parents.stream()
-                .map(Variable::getName)
-                .collect(Collectors.toList());
+    public double[] getProbabilities() {
+        return probabilities;
     }
 
-    public boolean isAncestorInEvidence(Set<String> evidence) {
-        if (evidence.contains(this.name)) {
-            return true;
+    public double getProbability(String outcome) {
+        int index = outcomes.indexOf(outcome);
+        if (index >= 0 && index < probabilities.length) {
+            return probabilities[index];
         }
-
-        for (Variable parent : parents) {
-            if (parent.isAncestorInEvidence(evidence)) {
-                return true;
-            }
-        }
-        return false;
+        return 0.0;
     }
 
-    public List<Variable> getParents() {
-        return new ArrayList<>(parents);
-    }
-
-    public List<Variable> getChildren() {
-        return new ArrayList<>(children);
+    @Override
+    public String toString() {
+        return "Variable{" +
+                "name='" + name + '\'' +
+                ", outcomes=" + outcomes +
+                ", parents=" + parents +
+                ", children=" + children +
+                ", probabilities=" + Arrays.toString(probabilities) +
+                '}';
     }
 }

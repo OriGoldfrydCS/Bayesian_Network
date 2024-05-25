@@ -1,70 +1,65 @@
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class BayesianNetwork {
-    private final Map<String, Variable> variables = new HashMap<>();
-    private final Map<String, CPT> cpts = new HashMap<>();
-    private BayesBall bayesBall;
-    private VariableElimination variableElimination;
+    private Map<String, Variable> variables;
+    private Map<String, CPT> cpts;
 
     public BayesianNetwork() {
-        bayesBall = new BayesBall(variables, cpts);
-        variableElimination = new VariableElimination(variables, cpts);
-    }
-
-    public BayesianNetwork(BayesianNetwork other) {
-        for (Map.Entry<String, Variable> entry : other.variables.entrySet()) {
-            variables.put(entry.getKey(), new Variable(entry.getValue().getName(), entry.getValue().getOutcomes()));
-        }
-        for (Map.Entry<String, CPT> entry : other.cpts.entrySet()) {
-            List<Variable> parents = new ArrayList<>();
-            for (String parentName : entry.getValue().getParentNames()) {
-                parents.add(variables.get(parentName));
-            }
-            cpts.put(entry.getKey(), new CPT(variables.get(entry.getKey()), parents, entry.getValue().getProbabilities().stream()
-                    .map(String::valueOf)
-                    .toArray(String[]::new)));
-        }
-        bayesBall = new BayesBall(variables, cpts);
-        variableElimination = new VariableElimination(variables, cpts);
+        this.variables = new HashMap<>();
+        this.cpts = new HashMap<>();
     }
 
     public void addVariable(Variable variable) {
-        variables.put(variable.getName(), variable);
-    }
-
-    public void addCPT(String variableName, List<String> parentNames, String[] probabilities) {
-        Variable child = variables.get(variableName);
-        if (child == null) {
-            throw new IllegalStateException("Child variable '" + variableName + "' not found.");
-        }
-
-        List<Variable> parentVariables = new ArrayList<>();
-        for (String parentName : parentNames) {
-            Variable parent = variables.get(parentName);
-            if (parent == null) {
-                throw new IllegalStateException("Parent variable '" + parentName + "' not found.");
-            }
-            parent.addChild(child);
-            child.addParent(parent);
-            parentVariables.add(parent);
-        }
-
-        CPT cpt = new CPT(child, parentVariables, probabilities);
-        cpts.put(variableName, cpt);
+        this.variables.put(variable.getName(), variable);
     }
 
     public Variable getVariable(String name) {
-        return variables.get(name);
+        return this.variables.get(name);
     }
 
-    public BayesBall getBayesBall() {
-        return bayesBall;
+    public Collection<Variable> getVariables() {
+        return this.variables.values();
     }
 
-    public VariableElimination getVariableElimination() {
-        return variableElimination;
+    public void addCPT(String variableName, CPT cpt) {
+        this.cpts.put(variableName, cpt);
+    }
+
+    public CPT getCPT(String variableName) {
+        return this.cpts.get(variableName);
+    }
+
+    public Map<String, CPT> getCPTs() {
+        return this.cpts;
+    }
+
+    public void setParents(Variable variable, Variable... parents) {
+        CPT cpt = this.getCPT(variable.getName());
+        for (Variable parent : parents) {
+            cpt.addParent(parent);
+            parent.addChild(variable);
+        }
+    }
+
+    private boolean delete_nodes(Map<String, String> evidence) {
+        boolean deleted = false;
+        for (Variable variable : this.getVariables()) {
+            String name = variable.getName();
+            if (!evidence.containsKey(name) && hasNoParents(name)) {
+                this.variables.remove(name);
+                this.cpts.remove(name);
+                deleted = true;
+            }
+        }
+        return deleted;
+    }
+
+    private boolean hasNoParents(String name) {
+        CPT cpt = this.getCPT(name);
+        return cpt != null && cpt.getParents().isEmpty();
+    }
+
+    public Node getNodeByName(String parent) {
+        //Complete
     }
 }

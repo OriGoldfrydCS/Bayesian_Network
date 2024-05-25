@@ -1,71 +1,53 @@
-import java.util.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.Stack;
 
 public class BayesBall {
-    private Map<String, Variable> variables;
-    private Map<String, CPT> cpts;
+    private BayesianNetwork network;
 
-    public BayesBall(Map<String, Variable> variables, Map<String, CPT> cpts) {
-        this.variables = variables;
-        this.cpts = cpts;
+    public BayesBall(BayesianNetwork network) {
+        this.network = network;
     }
 
-    public boolean query(String start, String end, Set<String> evidence) {
-        System.out.println("Querying BayesBall: Start=" + start + ", End=" + end + ", Evidence=" + evidence);
-
+    public boolean isIndependent(String start, String end, Map<String, String> evidence) {
+        System.out.println("Starting BayesBall: Start=" + start + ", End=" + end + ", Evidence=" + evidence);
         Set<String> visited = new HashSet<>();
-        Queue<Visit> queue = new LinkedList<>();
-        queue.add(new Visit(start, null, false));
+        Stack<String> stack = new Stack<>();
+        stack.push(start);
 
-        while (!queue.isEmpty()) {
-            Visit visit = queue.poll();
-            String current = visit.node;
+        while (!stack.isEmpty()) {
+            String current = stack.pop();
             System.out.println("Visiting: " + current);
-
-            String from = visit.cameFrom;
-            boolean cameFromParent = visit.cameFromParent;
-
             if (current.equals(end)) {
-                if (!cameFromParent || evidence.contains(current)) {
-                    System.out.println("Dependent (current node is evidence or reached via parent)");
-                    return false; // Dependent
+                System.out.println("Path found: " + start + " to " + end);
+                return false; // Found a path, thus dependent
+            }
+            if (visited.contains(current)) {
+                System.out.println("Already visited: " + current);
+                continue; // Skip already visited nodes
+            }
+            visited.add(current);
+
+            Variable var = network.getVariable(current);
+            if (var == null) continue; // Safety check
+
+            // Process parents
+            for (Variable parent : var.getParents()) {
+                if (!evidence.containsKey(parent.getName()) && !visited.contains(parent.getName())) {
+                    stack.push(parent.getName());
+                    System.out.println("Adding parent to stack: " + parent.getName());
                 }
             }
-
-            if (!visited.contains(current)) {
-                visited.add(current);
-                Variable currentVar = variables.get(current);
-                if (currentVar != null) {
-                    if (!cameFromParent || evidence.contains(current)) {
-                        for (Variable child : currentVar.getChildren()) {
-                            if (!visited.contains(child.getName())) {
-                                queue.add(new Visit(child.getName(), current, false));
-                            }
-                        }
-                    }
-
-                    if (!evidence.contains(current) && !currentVar.hasMultipleParents()) {
-                        for (Variable parent : currentVar.getParents()) {
-                            if (!visited.contains(parent.getName())) {
-                                queue.add(new Visit(parent.getName(), current, true));
-                            }
-                        }
-                    }
+            // Process children
+            for (Variable child : var.getChildren()) {
+                if (!evidence.containsKey(child.getName()) && !visited.contains(child.getName())) {
+                    stack.push(child.getName());
+                    System.out.println("Adding child to stack: " + child.getName());
                 }
             }
         }
-
-        return true; // Independent by default if no dependent path found
-    }
-
-    private static class Visit {
-        String node;
-        String cameFrom;
-        boolean cameFromParent;
-
-        Visit(String node, String cameFrom, boolean cameFromParent) {
-            this.node = node;
-            this.cameFrom = cameFrom;
-            this.cameFromParent = cameFromParent;
-        }
+        System.out.println("No path found: " + start + " to " + end);
+        return true; // No path found, thus independent
     }
 }
