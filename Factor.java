@@ -1,40 +1,46 @@
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Factor {
-    private List<Variable> variables;
+    private List<Node> nodes;
     private Map<List<String>, Double> probabilityTable;
 
-    public Factor(Variable var, Map<String, String> evidence) {
-        variables = new ArrayList<>();
+    public Factor(Node node, Map<String, String> evidence) {
+        nodes = new ArrayList<>();
         probabilityTable = new HashMap<>();
-        if (!evidence.containsKey(var.getName())) {
-            variables.add(var);
-            for (String outcome : var.getOutcomes()) {
+        if (!evidence.containsKey(node.getNodeName())) {
+            nodes.add(node);
+            int stateIndex = 0;
+            for (String state : node.getPossibleStates()) {
                 List<String> key = new ArrayList<>();
-                key.add(outcome);
-                probabilityTable.put(key, var.getProbability(outcome));
-                System.out.println("Adding probability for " + var.getName() + " = " + outcome + ": " + var.getProbability(outcome));
+                key.add(state);
+                probabilityTable.put(key, getProbability(node, state));
+                System.out.println("Adding probability for " + node.getNodeName() + " = " + state + ": " + getProbability(node, state));
+                stateIndex++;
             }
         }
     }
 
     public Factor() {
-        variables = new ArrayList<>();
+        nodes = new ArrayList<>();
         probabilityTable = new HashMap<>();
     }
 
     public Factor(Factor other) {
-        // Implement
+        nodes = new ArrayList<>(other.nodes);
+        probabilityTable = new HashMap<>(other.probabilityTable);
     }
 
-    public Factor(List<Variable> newVars) {
-        variables = newVars;
+    public Factor(List<Node> newNodes) {
+        nodes = newNodes;
         probabilityTable = new HashMap<>();
     }
 
-    public boolean contains(String varName) {
-        for (Variable v : variables) {
-            if (v.getName().equals(varName)) {
+    public boolean contains(String nodeName) {
+        for (Node n : nodes) {
+            if (n.getNodeName().equals(nodeName)) {
                 return true;
             }
         }
@@ -42,21 +48,21 @@ public class Factor {
     }
 
     public Factor multiply(Factor other) {
-        List<Variable> newVars = new ArrayList<>(variables);
-        for (Variable var : other.variables) {
-            if (!newVars.contains(var)) {
-                newVars.add(var);
+        List<Node> newNodes = new ArrayList<>(nodes);
+        for (Node node : other.nodes) {
+            if (!newNodes.contains(node)) {
+                newNodes.add(node);
             }
         }
-        Factor result = new Factor(newVars);
+        Factor result = new Factor(newNodes);
 
         for (List<String> assignment1 : probabilityTable.keySet()) {
             for (List<String> assignment2 : other.probabilityTable.keySet()) {
                 if (compatible(assignment1, assignment2, other)) {
                     List<String> newAssignment = new ArrayList<>();
-                    for (Variable var : newVars) {
-                        int index1 = variables.indexOf(var);
-                        int index2 = other.variables.indexOf(var);
+                    for (Node node : newNodes) {
+                        int index1 = nodes.indexOf(node);
+                        int index2 = other.nodes.indexOf(node);
                         if (index1 >= 0) {
                             newAssignment.add(assignment1.get(index1));
                         } else {
@@ -72,44 +78,32 @@ public class Factor {
         return result;
     }
 
-    public Factor sumOut(String varName) {
+    public Factor sumOut(Node node) {
         Factor result = new Factor();
-        int varIndex = -1;
+        int nodeIndex = nodes.indexOf(node);
 
-        for (int i = 0; i < variables.size(); i++) {
-            if (variables.get(i).getName().equals(varName)) {
-                varIndex = i;
-                break;
-            }
-        }
-
-        if (varIndex == -1) {
+        if (nodeIndex == -1) {
             return this;
         }
 
         for (List<String> assignment : probabilityTable.keySet()) {
             List<String> newAssignment = new ArrayList<>(assignment);
-            newAssignment.remove(varIndex);
+            newAssignment.remove(nodeIndex);
             double newProb = probabilityTable.get(assignment);
             result.probabilityTable.merge(newAssignment, newProb, Double::sum);
-            System.out.println("Summing out " + varName + ", new assignment: " + newAssignment + " new probability: " + newProb);
+            System.out.println("Summing out " + node.getNodeName() + ", new assignment: " + newAssignment + " new probability: " + newProb);
         }
 
-        result.variables = new ArrayList<>(variables);
-        result.variables.remove(varIndex);
+        result.nodes = new ArrayList<>(nodes);
+        result.nodes.remove(nodeIndex);
 
         return result;
     }
 
-    public double getProbability(String query) {
-        List<String> key = Arrays.asList(query.split(","));
-        return probabilityTable.getOrDefault(key, 0.0);
-    }
-
     private boolean compatible(List<String> assignment1, List<String> assignment2, Factor other) {
-        for (int i = 0; i < variables.size(); i++) {
-            Variable var = variables.get(i);
-            int index = other.variables.indexOf(var);
+        for (int i = 0; i < nodes.size(); i++) {
+            Node node = nodes.get(i);
+            int index = other.nodes.indexOf(node);
             if (index != -1 && !assignment1.get(i).equals(assignment2.get(index))) {
                 return false;
             }
@@ -117,20 +111,35 @@ public class Factor {
         return true;
     }
 
+    private double getProbability(Node node, String outcome) {
+        for (HashMap<String, String> row : node.getCPT()) {
+            if (row.get(node.getNodeName()).equals(outcome)) {
+                return Double.parseDouble(row.get("P"));
+            }
+        }
+        return 0.0;
+    }
+
+
+    public double getProbability(String query) {
+        List<String> key = new ArrayList<>(List.of(query.split(",")));
+        return probabilityTable.getOrDefault(key, 0.0);
+    }
+
     @Override
     public String toString() {
         return "Factor{" +
-                "variables=" + variables +
+                "nodes=" + nodes +
                 ", probabilityTable=" + probabilityTable +
                 '}';
     }
 
     public double getValue() {
-        //IMPLEMENT
+        // IMPLEMENT
         return 0;
     }
 
     public void setValue(double value) {
-        //IMPLEMENT
+        // IMPLEMENT
     }
 }

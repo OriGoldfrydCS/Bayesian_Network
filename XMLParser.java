@@ -29,31 +29,26 @@ public class XMLParser {
             Element element = (Element) definitionList.item(i);
             String forVariable = element.getElementsByTagName("FOR").item(0).getTextContent();
             Variable variable = network.getVariable(forVariable);
-            CPT cpt = new CPT(variable);
+            Node node = new Node(forVariable, variable);
+            network.addNode(node);
 
             NodeList givenList = element.getElementsByTagName("GIVEN");
+            List<String> parents = new ArrayList<>();
             for (int j = 0; j < givenList.getLength(); j++) {
-                Variable parent = network.getVariable(givenList.item(j).getTextContent());
-                cpt.addParent(parent);
-                parent.addChild(variable);
+                String parentName = givenList.item(j).getTextContent();
+                parents.add(parentName);
             }
+            network.setParents(node, parents);
+
 
             String table = element.getElementsByTagName("TABLE").item(0).getTextContent();
             String[] probabilities = table.split(" ");
-            variable.setProbabilities(probabilities);
-
-            network.addCPT(forVariable, cpt);
+            node.buildCPT(probabilities);
         }
 
         System.out.println("Variables:");
         for (Variable variable : network.getVariables()) {
             System.out.println(variable);
-        }
-
-        System.out.println("CPTs:");
-        for (Variable variable : network.getVariables()) {
-            CPT cpt = network.getCPT(variable.getName());
-            System.out.println(cpt);
         }
 
         return network;

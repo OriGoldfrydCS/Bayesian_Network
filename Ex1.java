@@ -21,41 +21,54 @@ public class Ex1 {
     private static List<String> processQueries(BayesianNetwork network, List<String> queries) {
         List<String> results = new ArrayList<>();
         VariableElimination ve = new VariableElimination(network);
-        BayesBall bb = new BayesBall(network);
+        BayesBall bb = new BayesBall();
 
-        try (FileOutput fileOutput = new FileOutput("output.txt")) {
-            for (String query : queries) {
-                if (query.startsWith("P(")) {
-                    String result = processVariableEliminationQuery(ve, query);
-                    results.add(result);
-                } else if (query.contains("-")) {
-                    String result = processBayesBallQuery(bb, query);
-                    results.add(result);
-                } else {
-                    System.out.println("Unhandled query format: " + query);
-                }
+        for (String query : queries) {
+            if (query.startsWith("P(")) {
+                String result = processVariableEliminationQuery(ve, query);
+                results.add(result);
+            } else if (query.contains("-")) {
+                String result = processIndependenceQuery(network, query);
+                results.add(result);
+            } else {
+                System.out.println("Unhandled query format: " + query);
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
-
         return results;
     }
 
-    private static String processBayesBallQuery(BayesBall bb, String query) {
+    private static String processIndependenceQuery(BayesianNetwork network, String query) {
         String[] parts = query.split("\\|");
         String[] nodes = parts[0].split("-");
-        Map<String, String> evidenceMap = new HashMap<>();
+        ArrayList<Node> evidenceList = new ArrayList<>();
+        System.out.println("Processing query: " + query);
+
         if (parts.length > 1) {
             String[] evidenceParts = parts[1].split(",");
+            System.out.println("Evidence provided: " + String.join(", ", evidenceParts));
+
             for (String evidence : evidenceParts) {
-                String[] ev = evidence.split("=");
-                evidenceMap.put(ev[0], ev[1]);
+                String ev = evidence.trim();
+                // Split the evidence to extract the node name before '='
+                String nodeName = ev.contains("=") ? ev.split("=")[0] : ev;
+                Node evidenceNode = network.getNodeByName(nodeName);
+                if (evidenceNode != null) {
+                    evidenceList.add(evidenceNode);
+                    System.out.println("Added " + nodeName + " to evidence list.");
+                } else {
+                    System.out.println("Error: Node " + nodeName + " not found in network.");
+                }
             }
+        } else {
+            System.out.println("No evidence provided for this query.");
         }
-        boolean independent = bb.isIndependent(nodes[0], nodes[1], evidenceMap);
-        return independent ? "yes" : "no";
+
+        String result = BayesBall.checkIndependence(network, network.getNodeByName(nodes[0].trim()), network.getNodeByName(nodes[1].trim()), evidenceList);
+        System.out.println("Result of independence check between " + nodes[0].trim() + " and " + nodes[1].trim() + ": " + result);
+        return result;
     }
+
+
 
     private static String processVariableEliminationQuery(VariableElimination ve, String query) {
         String[] parts = query.split("\\|");

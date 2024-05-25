@@ -3,7 +3,6 @@ import java.util.HashMap;
 import java.util.List;
 
 public class Node {
-
     private String nodeName;
     private List<Node> children;
     private List<Node> parents;
@@ -12,12 +11,13 @@ public class Node {
     private Factor factor;
     private List<HashMap<String,String>> cpt;
 
-    public Node(String name) {
-        this.nodeName = name;
-        this.parents = new ArrayList<>();
+    public Node(String nodeName, Variable variable) {
+        this.nodeName = nodeName;
         this.children = new ArrayList<>();
-        this.cpt = new ArrayList<>();
+        this.parents = new ArrayList<>();
+        this.possibleStates = variable.getVariablePossibleStates();
         this.factor = new Factor();
+        this.cpt = new ArrayList<>();
     }
 
     public Node(Node other) {
@@ -32,18 +32,18 @@ public class Node {
         this.factor = new Factor(other.getFactor());
     }
 
-    public Node(String nodeName, List<String> parents, BayesianNetwork network, List<String> possibleStates) {
+    public Node(String nodeName, List<String> parentNames, BayesianNetwork network) {
         this.nodeName = nodeName;
         this.network = network;
-        for (String parent : parents) {
-            Node parentNode = network.getNodeByName(parent);
+        for (String parentName : parentNames) {
+            Node parentNode = network.getNodeByName(parentName);
             if (parentNode != null) {
                 this.parents.add(parentNode);
+                parentNode.addChild(this);
             } else {
-                this.parents.add(new Node(parent));
+                this.parents.add(new Node(parentName, new Variable(parentName, new ArrayList<>())));
             }
         }
-        this.possibleStates = new ArrayList<>(possibleStates);
         this.cpt = new ArrayList<>();
     }
 
@@ -114,19 +114,19 @@ public class Node {
         return this.cpt.get(index);
     }
 
-    private List<String> getPossibleStates() {
+    public List<String> getPossibleStates() {
         return this.possibleStates;
     }
 
-    private List<Node> getChildren() {
+    public List<Node> getChildren() {
         return this.children;
     }
 
-    private List<Node> getParents() {
+    public List<Node> getParents() {
         return this.parents;
     }
 
-    private String getNodeName() {
+    public String getNodeName() {
         return this.nodeName;
     }
 

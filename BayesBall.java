@@ -1,53 +1,103 @@
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.Stack;
+import java.util.ArrayList;
 
 public class BayesBall {
-    private BayesianNetwork network;
 
-    public BayesBall(BayesianNetwork network) {
-        this.network = network;
+    private static ArrayList<Node> visitedNodes = new ArrayList<>();
+
+    public static String checkIndependence(BayesianNetwork network, Node source, Node target, ArrayList<Node> evidence) {
+        visitedNodes.clear(); // Reset the list of visited nodes for each new check.
+        System.out.println("Starting new independence check between " + source.getNodeName() + " and " + target.getNodeName());
+        if (runCheck(network, source, target, evidence, null)) {
+            return "yes"; // Independent
+        } else {
+            return "no"; // Dependent
+        }
     }
 
-    public boolean isIndependent(String start, String end, Map<String, String> evidence) {
-        System.out.println("Starting BayesBall: Start=" + start + ", End=" + end + ", Evidence=" + evidence);
-        Set<String> visited = new HashSet<>();
-        Stack<String> stack = new Stack<>();
-        stack.push(start);
+    private static boolean runCheck(BayesianNetwork network, Node source, Node target, ArrayList<Node> evidence, Node lastVisited) {
+        System.out.println("Visiting Node: " + source.getNodeName() + " from Node: " + (lastVisited == null ? "Start" : lastVisited.getNodeName()) + ". Evidence status: " + evidence.contains(source));
 
-        while (!stack.isEmpty()) {
-            String current = stack.pop();
-            System.out.println("Visiting: " + current);
-            if (current.equals(end)) {
-                System.out.println("Path found: " + start + " to " + end);
-                return false; // Found a path, thus dependent
-            }
-            if (visited.contains(current)) {
-                System.out.println("Already visited: " + current);
-                continue; // Skip already visited nodes
-            }
-            visited.add(current);
+        if (source.equals(target)) {
+            System.out.println("Reached target node from source node, nodes are dependent.");
+            return false;
+        }
 
-            Variable var = network.getVariable(current);
-            if (var == null) continue; // Safety check
+//        if (visitedNodes.contains(source)) {
+//            System.out.println("Node " + source.getNodeName() + " has been already visited. Assuming independence for this path.");
+//            return true;  // Avoid cycles.
+//        }
 
-            // Process parents
-            for (Variable parent : var.getParents()) {
-                if (!evidence.containsKey(parent.getName()) && !visited.contains(parent.getName())) {
-                    stack.push(parent.getName());
-                    System.out.println("Adding parent to stack: " + parent.getName());
+        visitedNodes.add(source);
+        System.out.println("Adding Node " + source.getNodeName() + " to visited list.");
+
+        // Case 1: The current node is in evidence
+        if (evidence.contains(source)) {
+            // Case 1a: The current node is in evidence and was reached from a parent
+            if (lastVisited != null && source.getParents().contains(lastVisited)) {
+                System.out.println("Node " + source.getNodeName() + " is in evidence and was reached from a parent, going to parent(s)");
+                for (Node parent : source.getParents()) {
+                    if (visitedNodes.contains(parent)) {
+                        if (!runCheck(network, parent, target, evidence, source)) {
+                            return false;
+                        }
+                    }
                 }
-            }
-            // Process children
-            for (Variable child : var.getChildren()) {
-                if (!evidence.containsKey(child.getName()) && !visited.contains(child.getName())) {
-                    stack.push(child.getName());
-                    System.out.println("Adding child to stack: " + child.getName());
+                // After visiting the parents, visit the children
+                for (Node child : source.getChildren()) {
+                    if (!visitedNodes.contains(child)) {
+                        if (!runCheck(network, child, target, evidence, source)) {
+                            return false;
+                        }
+                    }
                 }
+                return true;
+            }
+            // Case 1b: The current node is in evidence and was reached from a child
+            else if (lastVisited != null && source.getChildren().contains(lastVisited)) {
+                System.out.println("Node " + source.getNodeName() + " is in evidence and was reached from a child, going to parent(s)");
+                for (Node parent : source.getParents()) {
+                    if (!visitedNodes.contains(parent)) {
+                        if (!runCheck(network, parent, target, evidence, source)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
             }
         }
-        System.out.println("No path found: " + start + " to " + end);
-        return true; // No path found, thus independent
+        // Case 2: The current node is not in evidence
+        else {
+            // Case 2a: The current node is not in evidence and came from a child or the start
+            if (lastVisited == null || source.getChildren().contains(lastVisited)) {
+                for (Node parent : source.getParents()) {
+                    if (!visitedNodes.contains(parent)) {
+                        if (!runCheck(network, parent, target, evidence, source)) {
+                            return false;
+                        }
+                    }
+                }
+                for (Node child : source.getChildren()) {
+                    if (!visitedNodes.contains(child)) {
+                        if (!runCheck(network, child, target, evidence, source)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+            // Case 2b: The current node is not in evidence and came from a parent
+            else {
+                for (Node child : source.getChildren()) {
+                    if (!visitedNodes.contains(child)) {
+                        if (!runCheck(network, child, target, evidence, source)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+        }
+
+        return true;
     }
 }

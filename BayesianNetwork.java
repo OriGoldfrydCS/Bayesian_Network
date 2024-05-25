@@ -2,15 +2,15 @@ import java.util.*;
 
 public class BayesianNetwork {
     private Map<String, Variable> variables;
-    private Map<String, CPT> cpts;
+    private Map<String, Node> nodes;
 
     public BayesianNetwork() {
         this.variables = new HashMap<>();
-        this.cpts = new HashMap<>();
+        this.nodes = new HashMap<>();
     }
 
     public void addVariable(Variable variable) {
-        this.variables.put(variable.getName(), variable);
+        this.variables.put(variable.getVariableName(), variable);
     }
 
     public Variable getVariable(String name) {
@@ -21,33 +21,36 @@ public class BayesianNetwork {
         return this.variables.values();
     }
 
-    public void addCPT(String variableName, CPT cpt) {
-        this.cpts.put(variableName, cpt);
+    public void addNode(Node node) {
+        this.nodes.put(node.getNodeName(), node);
     }
 
-    public CPT getCPT(String variableName) {
-        return this.cpts.get(variableName);
+    public Node getNodeByName(String name) {
+        return this.nodes.get(name);
     }
 
-    public Map<String, CPT> getCPTs() {
-        return this.cpts;
+    public Collection<Node> getNodes() {
+        return this.nodes.values();
     }
 
-    public void setParents(Variable variable, Variable... parents) {
-        CPT cpt = this.getCPT(variable.getName());
-        for (Variable parent : parents) {
-            cpt.addParent(parent);
-            parent.addChild(variable);
+    public void setParents(Node node, List<String> parents) {
+        for (String parentName : parents) {
+            Node parentNode = getNodeByName(parentName);
+            if (parentNode != null) {
+                node.addParent(parentNode);
+                parentNode.addChild(node);
+            } else {
+                node.addParent(new Node(parentName, new Variable(parentName, new ArrayList<>())));
+            }
         }
     }
 
-    private boolean delete_nodes(Map<String, String> evidence) {
+    private boolean deleteNodes(Map<String, String> evidence) {
         boolean deleted = false;
-        for (Variable variable : this.getVariables()) {
-            String name = variable.getName();
-            if (!evidence.containsKey(name) && hasNoParents(name)) {
-                this.variables.remove(name);
-                this.cpts.remove(name);
+        for (Node node : this.getNodes()) {
+            String name = node.getNodeName();
+            if (!evidence.containsKey(name) && !node.hasParents()) {
+                this.nodes.remove(name);
                 deleted = true;
             }
         }
@@ -55,11 +58,7 @@ public class BayesianNetwork {
     }
 
     private boolean hasNoParents(String name) {
-        CPT cpt = this.getCPT(name);
-        return cpt != null && cpt.getParents().isEmpty();
-    }
-
-    public Node getNodeByName(String parent) {
-        //Complete
+        Node node = this.getNodeByName(name);
+        return node != null && node.getParents().isEmpty();
     }
 }

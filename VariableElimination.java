@@ -1,4 +1,7 @@
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 
 public class VariableElimination {
     private BayesianNetwork network;
@@ -16,10 +19,10 @@ public class VariableElimination {
         List<Factor> factors = initializeFactors(evidence);
         System.out.println("Initial Factors: " + factors);
 
-        List<Variable> hidden = getSortedHiddenVariables(evidence, queryVariable, algorithm);
-        for (Variable variable : hidden) {
-            factors = sumOut(variable.getName(), factors);
-            System.out.println("Factors after summing out " + variable.getName() + ": " + factors);
+        List<Node> hidden = getSortedHiddenNodes(evidence, queryVariable, algorithm);
+        for (Node node : hidden) {
+            factors = sumOut(node, factors);
+            System.out.println("Factors after summing out " + node.getNodeName() + ": " + factors);
         }
 
         Factor result = combineFactors(factors);
@@ -30,22 +33,26 @@ public class VariableElimination {
         return new Object[] { probability, this.additions, this.multiplications };
     }
 
-    private List<Variable> getSortedHiddenVariables(Map<String, String> evidence, String queryVariable, char algorithm) {
-        List<Variable> hidden = new ArrayList<>();
-        for (Variable var : this.network.getVariables()) {
-            if (!evidence.containsKey(var.getName()) && !var.getName().equals(queryVariable)) {
-                hidden.add(var);
+    private List<Node> getSortedHiddenNodes(Map<String, String> evidence, String queryVariable, char algorithm) {
+        List<Node> hidden = new ArrayList<>();
+        for (Node node : this.network.getNodes()) {
+            if (!evidence.containsKey(node.getNodeName()) && !node.getNodeName().equals(queryVariable)) {
+                hidden.add(node);
             }
         }
 
-        hidden.sort(Comparator.comparingInt(this::getFactorCount).reversed());
+        if (algorithm == '2') {
+            hidden.sort(Comparator.comparing(Node::getNodeName));
+        } else if (algorithm == '3') {
+            hidden.sort(Comparator.comparingInt(this::getFactorCount).reversed());
+        }
         return hidden;
     }
 
-    private int getFactorCount(Variable variable) {
+    private int getFactorCount(Node node) {
         int count = 0;
-        for (CPT cpt : this.network.getCPTs().values()) {
-            if (cpt.getParents().contains(variable)) {
+        for (Node n : this.network.getNodes()) {
+            if (n.getNodeName().equals(node.getNodeName())) {
                 count++;
             }
         }
@@ -54,18 +61,18 @@ public class VariableElimination {
 
     private List<Factor> initializeFactors(Map<String, String> evidence) {
         List<Factor> factors = new ArrayList<>();
-        for (Variable var : this.network.getVariables()) {
-            factors.add(new Factor(var, evidence));
+        for (Node node : this.network.getNodes()) {
+            factors.add(new Factor(node, evidence));
         }
         return factors;
     }
 
-    private List<Factor> sumOut(String varName, List<Factor> factors) {
+    private List<Factor> sumOut(Node node, List<Factor> factors) {
         List<Factor> newFactors = new ArrayList<>();
         Factor merged = null;
 
         for (Factor factor : factors) {
-            if (factor.contains(varName)) {
+            if (factor.contains(node.getNodeName())) {
                 if (merged == null) {
                     merged = factor;
                 } else {
@@ -78,7 +85,7 @@ public class VariableElimination {
         }
 
         if (merged != null) {
-            Factor summedFactor = merged.sumOut(varName);
+            Factor summedFactor = merged.sumOut(node);
             newFactors.add(summedFactor);
             this.additions++;
         }
