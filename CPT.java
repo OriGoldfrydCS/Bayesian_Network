@@ -1,18 +1,28 @@
 import java.util.*;
 
 public class CPT {
-    private Variable variable;
+    private Node node;
     private List<Variable> parents;
     private Map<List<String>, Double> probabilityTable;
 
-    public CPT(Variable variable) {
-        this.variable = variable;
+    public CPT(Node node) {
+        this.node = node;
         this.parents = new ArrayList<>();
         this.probabilityTable = new HashMap<>();
     }
 
+    public CPT(CPT other) {
+        this.node = other.getNode();
+        this.parents = new ArrayList<>(other.getParents());
+        this.probabilityTable = new HashMap<>(other.getProbabilityTable());
+    }
+
     public void addParent(Variable parent) {
         this.parents.add(parent);
+    }
+
+    public void removeParent(Variable parent) {
+        this.parents.remove(parent);
     }
 
     public void setProbability(List<String> key, double probability) {
@@ -23,20 +33,39 @@ public class CPT {
         return this.probabilityTable.getOrDefault(key, 0.0);
     }
 
-    public Variable getVariable() {
-        return variable;
+    public Node getNode() {
+        return node;
     }
 
     public List<Variable> getParents() {
         return parents;
     }
 
+    public Map<List<String>, Double> getProbabilityTable() {
+        return probabilityTable;
+    }
+
     @Override
     public String toString() {
         return "CPT{" +
-                "variable=" + variable +
+                "node=" + node +
                 ", parents=" + parents +
                 ", probabilityTable=" + probabilityTable +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        CPT cpt = (CPT) o;
+        return Objects.equals(node, cpt.node) &&
+                Objects.equals(parents, cpt.parents) &&
+                Objects.equals(probabilityTable, cpt.probabilityTable);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(node, parents, probabilityTable);
     }
 }

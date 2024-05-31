@@ -10,7 +10,9 @@ public class Ex1 {
     public static void main(String[] args) {
         try {
             BayesianNetwork network = XMLParser.parse("alarm_net.xml");
+//            BayesianNetwork network = XMLParser.parse("big_net.xml");
             List<String> queries = readQueries("input.txt");
+//            List<String> queries = readQueries("input2.txt");
             List<String> results = processQueries(network, queries);
             writeToOutputFile("output.txt", results);
         } catch (Exception e) {

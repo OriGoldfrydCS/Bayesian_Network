@@ -3,7 +3,19 @@ import javax.xml.parsers.*;
 import java.io.*;
 import java.util.*;
 
+/**
+ * The `XMLParser` class is responsible for parsing an XML file representing a Bayesian network
+ * and creating a `BayesianNetwork` object from the parsed data.
+ */
 public class XMLParser {
+
+    /**
+     * Parses the given XML file and creates a `BayesianNetwork` object.
+     *
+     * @param xmlFile the path to the XML file containing the Bayesian network data
+     * @return a `BayesianNetwork` object representing the parsed network
+     * @throws Exception if any errors occur during the parsing process
+     */
     public static BayesianNetwork parse(String xmlFile) throws Exception {
         BayesianNetwork network = new BayesianNetwork();
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -11,6 +23,7 @@ public class XMLParser {
         Document doc = builder.parse(new File(xmlFile));
         doc.getDocumentElement().normalize();
 
+        // Parse the VARIABLE elements and add them to the network
         NodeList variableList = doc.getElementsByTagName("VARIABLE");
         for (int i = 0; i < variableList.getLength(); i++) {
             Element element = (Element) variableList.item(i);
@@ -24,14 +37,18 @@ public class XMLParser {
             network.addVariable(variable);
         }
 
+        // Parse the DEFINITION elements and create or retrieve the corresponding nodes
         NodeList definitionList = doc.getElementsByTagName("DEFINITION");
         for (int i = 0; i < definitionList.getLength(); i++) {
             Element element = (Element) definitionList.item(i);
             String forVariable = element.getElementsByTagName("FOR").item(0).getTextContent();
-            Variable variable = network.getVariable(forVariable);
-            Node node = new Node(forVariable, variable);
-            network.addNode(node);
+            Node node = network.getNodeByName(forVariable);
+            if (node == null) {
+                node = new Node(forVariable);
+                network.addNode(node);
+            }
 
+            // Parse the GIVEN elements and set the parents of the node
             NodeList givenList = element.getElementsByTagName("GIVEN");
             List<String> parents = new ArrayList<>();
             for (int j = 0; j < givenList.getLength(); j++) {
@@ -40,15 +57,15 @@ public class XMLParser {
             }
             network.setParents(node, parents);
 
-
+            // Parse the CPT table and set the CPT for the node
             String table = element.getElementsByTagName("TABLE").item(0).getTextContent();
             String[] probabilities = table.split(" ");
             node.buildCPT(probabilities);
         }
 
         System.out.println("Variables:");
-        for (Variable variable : network.getVariables()) {
-            System.out.println(variable);
+        for (Node node : network.getNodes()) {
+            System.out.println(node);
         }
 
         return network;

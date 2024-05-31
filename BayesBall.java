@@ -1,10 +1,14 @@
 import java.util.ArrayList;
+import java.util.List;
 
 public class BayesBall {
 
-    private static ArrayList<Node> visitedNodes = new ArrayList<>();
+    private static List<Node> visitedNodes = new ArrayList<>();
 
     public static String checkIndependence(BayesianNetwork network, Node source, Node target, ArrayList<Node> evidence) {
+        if (source == null || target == null) {
+            return "Invalid input: source or target is null";
+        }
         visitedNodes.clear(); // Reset the list of visited nodes for each new check.
         System.out.println("Starting new independence check between " + source.getNodeName() + " and " + target.getNodeName());
         if (runCheck(network, source, target, evidence, null)) {

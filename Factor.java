@@ -7,35 +7,19 @@ public class Factor {
     private List<Node> nodes;
     private Map<List<String>, Double> probabilityTable;
 
-    public Factor(Node node, Map<String, String> evidence) {
-        nodes = new ArrayList<>();
-        probabilityTable = new HashMap<>();
-        if (!evidence.containsKey(node.getNodeName())) {
-            nodes.add(node);
-            int stateIndex = 0;
-            for (String state : node.getPossibleStates()) {
-                List<String> key = new ArrayList<>();
-                key.add(state);
-                probabilityTable.put(key, getProbability(node, state));
-                System.out.println("Adding probability for " + node.getNodeName() + " = " + state + ": " + getProbability(node, state));
-                stateIndex++;
-            }
-        }
+    public Factor(List<Node> newNodes) {
+        this.nodes = newNodes;
+        this.probabilityTable = new HashMap<>();
     }
 
-    public Factor() {
-        nodes = new ArrayList<>();
-        probabilityTable = new HashMap<>();
+    public Factor(List<Node> newNodes, Map<List<String>, Double> probTable) {
+        this.nodes = newNodes;
+        this.probabilityTable = probTable;
     }
 
     public Factor(Factor other) {
-        nodes = new ArrayList<>(other.nodes);
-        probabilityTable = new HashMap<>(other.probabilityTable);
-    }
-
-    public Factor(List<Node> newNodes) {
-        nodes = newNodes;
-        probabilityTable = new HashMap<>();
+        this.nodes = new ArrayList<>(other.nodes);
+        this.probabilityTable = new HashMap<>(other.probabilityTable);
     }
 
     public boolean contains(String nodeName) {
@@ -54,50 +38,48 @@ public class Factor {
                 newNodes.add(node);
             }
         }
-        Factor result = new Factor(newNodes);
 
-        for (List<String> assignment1 : probabilityTable.keySet()) {
-            for (List<String> assignment2 : other.probabilityTable.keySet()) {
-                if (compatible(assignment1, assignment2, other)) {
+        Map<List<String>, Double> newProbTable = new HashMap<>();
+
+        for (Map.Entry<List<String>, Double> entry1 : this.probabilityTable.entrySet()) {
+            for (Map.Entry<List<String>, Double> entry2 : other.probabilityTable.entrySet()) {
+                if (compatible(entry1.getKey(), entry2.getKey(), other)) {
                     List<String> newAssignment = new ArrayList<>();
                     for (Node node : newNodes) {
                         int index1 = nodes.indexOf(node);
                         int index2 = other.nodes.indexOf(node);
                         if (index1 >= 0) {
-                            newAssignment.add(assignment1.get(index1));
+                            newAssignment.add(entry1.getKey().get(index1));
                         } else {
-                            newAssignment.add(assignment2.get(index2));
+                            newAssignment.add(entry2.getKey().get(index2));
                         }
                     }
-                    double newProb = probabilityTable.get(assignment1) * other.probabilityTable.get(assignment2);
-                    result.probabilityTable.put(newAssignment, newProb);
-                    System.out.println("Multiplying factors, new assignment: " + newAssignment + " new probability: " + newProb);
+                    double newProb = entry1.getValue() * entry2.getValue();
+                    newProbTable.put(newAssignment, newProb);
                 }
             }
         }
-        return result;
+
+        return new Factor(newNodes, newProbTable);
     }
 
     public Factor sumOut(Node node) {
-        Factor result = new Factor();
         int nodeIndex = nodes.indexOf(node);
-
         if (nodeIndex == -1) {
             return this;
         }
 
-        for (List<String> assignment : probabilityTable.keySet()) {
-            List<String> newAssignment = new ArrayList<>(assignment);
+        Map<List<String>, Double> newProbTable = new HashMap<>();
+        List<Node> newNodes = new ArrayList<>(nodes);
+        newNodes.remove(nodeIndex);
+
+        for (Map.Entry<List<String>, Double> entry : probabilityTable.entrySet()) {
+            List<String> newAssignment = new ArrayList<>(entry.getKey());
             newAssignment.remove(nodeIndex);
-            double newProb = probabilityTable.get(assignment);
-            result.probabilityTable.merge(newAssignment, newProb, Double::sum);
-            System.out.println("Summing out " + node.getNodeName() + ", new assignment: " + newAssignment + " new probability: " + newProb);
+            newProbTable.merge(newAssignment, entry.getValue(), Double::sum);
         }
 
-        result.nodes = new ArrayList<>(nodes);
-        result.nodes.remove(nodeIndex);
-
-        return result;
+        return new Factor(newNodes, newProbTable);
     }
 
     private boolean compatible(List<String> assignment1, List<String> assignment2, Factor other) {
@@ -111,18 +93,7 @@ public class Factor {
         return true;
     }
 
-    private double getProbability(Node node, String outcome) {
-        for (HashMap<String, String> row : node.getCPT()) {
-            if (row.get(node.getNodeName()).equals(outcome)) {
-                return Double.parseDouble(row.get("P"));
-            }
-        }
-        return 0.0;
-    }
-
-
-    public double getProbability(String query) {
-        List<String> key = new ArrayList<>(List.of(query.split(",")));
+    public double getProbability(List<String> key) {
         return probabilityTable.getOrDefault(key, 0.0);
     }
 

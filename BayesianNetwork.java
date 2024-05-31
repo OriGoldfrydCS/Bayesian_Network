@@ -1,46 +1,56 @@
 import java.util.*;
 
 public class BayesianNetwork {
-    private Map<String, Variable> variables;
-    private Map<String, Node> nodes;
+    private List<Variable> variables;
+    private List<Node> nodes;
 
     public BayesianNetwork() {
-        this.variables = new HashMap<>();
-        this.nodes = new HashMap<>();
+        this.variables = new ArrayList<>();
+        this.nodes = new ArrayList<>();
     }
 
     public void addVariable(Variable variable) {
-        this.variables.put(variable.getVariableName(), variable);
+        this.variables.add(variable);
     }
 
     public Variable getVariable(String name) {
-        return this.variables.get(name);
+        for (Variable variable : this.variables) {
+            if (variable.getVariableName().equals(name)) {
+                return variable;
+            }
+        }
+        return null;
     }
 
-    public Collection<Variable> getVariables() {
-        return this.variables.values();
+    public List<Variable> getVariables() {
+        return this.variables;
     }
 
     public void addNode(Node node) {
-        this.nodes.put(node.getNodeName(), node);
+        this.nodes.add(node);
     }
 
     public Node getNodeByName(String name) {
-        return this.nodes.get(name);
+        for (Node node : this.nodes) {
+            if (node.getNodeName().equals(name)) {
+                return node;
+            }
+        }
+        return null;
     }
 
-    public Collection<Node> getNodes() {
-        return this.nodes.values();
+    public List<Node> getNodes() {
+        return this.nodes;
     }
 
-    public void setParents(Node node, List<String> parents) {
-        for (String parentName : parents) {
+    public void setParents(Node node, List<String> parentNames) {
+        for (String parentName : parentNames) {
             Node parentNode = getNodeByName(parentName);
             if (parentNode != null) {
                 node.addParent(parentNode);
                 parentNode.addChild(node);
             } else {
-                node.addParent(new Node(parentName, new Variable(parentName, new ArrayList<>())));
+                node.addParent(new Node(parentName));
             }
         }
     }

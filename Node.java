@@ -1,6 +1,4 @@
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 public class Node {
     private String nodeName;
@@ -9,15 +7,21 @@ public class Node {
     private List<String> possibleStates;
     private BayesianNetwork network;
     private Factor factor;
-    private List<HashMap<String,String>> cpt;
+    private CPT cpt;
+    private boolean isColored;
+    private boolean isVisitedFromParent;
+    private boolean isVisitedFromChild;
 
-    public Node(String nodeName, Variable variable) {
+    public Node(String nodeName) {
         this.nodeName = nodeName;
         this.children = new ArrayList<>();
         this.parents = new ArrayList<>();
-        this.possibleStates = variable.getVariablePossibleStates();
-        this.factor = new Factor();
-        this.cpt = new ArrayList<>();
+        this.possibleStates = new ArrayList<>();
+        this.factor = new Factor(new ArrayList<>(), new HashMap<>());
+        this.cpt = new CPT(this);
+        this.isColored = false;
+        this.isVisitedFromParent = false;
+        this.isVisitedFromChild = false;
     }
 
     public Node(Node other) {
@@ -25,10 +29,7 @@ public class Node {
         this.parents = new ArrayList<>(other.getParents());
         this.children = new ArrayList<>(other.getChildren());
         this.possibleStates = new ArrayList<>(other.getPossibleStates());
-        this.cpt = new ArrayList<>();
-        for (HashMap<String, String> row : other.getCPT()) {
-            this.cpt.add(new HashMap<>(row));
-        }
+        this.cpt = new CPT(other.getCPT());
         this.factor = new Factor(other.getFactor());
     }
 
@@ -41,15 +42,25 @@ public class Node {
                 this.parents.add(parentNode);
                 parentNode.addChild(this);
             } else {
-                this.parents.add(new Node(parentName, new Variable(parentName, new ArrayList<>())));
+                this.parents.add(new Node(parentName));
+                this.cpt.addParent(new Variable(parentName, new ArrayList<>()));
             }
         }
-        this.cpt = new ArrayList<>();
     }
 
     public void buildCPT(String[] table) {
-        for (String probabilityValue : table) {
-            this.cpt.add(createCPTRow(probabilityValue));
+        int index = 0;
+        List<List<String>> keys = new ArrayList<>();
+        for (String state : this.possibleStates) {
+            List<String> key = new ArrayList<>();
+            key.add(state);
+            for (Node parent : this.parents) {
+                key.add(parent.getPossibleStates().get(index % parent.getPossibleStates().size()));
+                index /= parent.getPossibleStates().size();
+            }
+            Collections.reverse(key);
+            keys.add(key);
+            this.cpt.setProbability(key, Double.parseDouble(table[index++]));
         }
     }
 
@@ -99,20 +110,24 @@ public class Node {
     }
 
     public boolean isProbabilistic() {
-        return !this.cpt.isEmpty();
+        return !this.cpt.getProbabilityTable().isEmpty();
     }
 
     public Factor getFactor() {
         return this.factor;
     }
 
-    public List<HashMap<String, String>> getCPT() {
-        return this.cpt;
+    public List<String> getVariablePossibleStates() {
+        return possibleStates;
     }
 
-    public HashMap<String, String> getCPTRow(int index) {
-        return this.cpt.get(index);
+    public CPT getCPT() {
+        return this.cpt;
     }
+//
+//    public HashMap<String, String> getCPTRow(int index) {
+//        return this.cpt.get(index);
+//    }
 
     public List<String> getPossibleStates() {
         return this.possibleStates;
@@ -131,7 +146,7 @@ public class Node {
     }
 
     public int getCPTRowCount() {
-        return this.cpt.size();
+        return this.cpt.getProbabilityTable().size();
     }
 
     public double getFactorValue() {
@@ -151,7 +166,12 @@ public class Node {
     }
 
     public void setCPTRow(int index, HashMap<String, String> row) {
-        this.cpt.set(index, row);
+        List<String> key = new ArrayList<>();
+        for (Node parent : this.parents) {
+            key.add(row.get(parent.getNodeName()));
+        }
+        key.add(row.get(this.nodeName));
+        this.cpt.setProbability(key, Double.parseDouble(row.get("P")));
     }
 
     @Override
@@ -183,12 +203,13 @@ public class Node {
         }
         sb.append("\n");
         sb.append("CPT:\n");
-        for (HashMap<String, String> row : cpt) {
+        Map<List<String>, Double> probTable = this.cpt.getProbabilityTable();
+        for (List<String> key : probTable.keySet()) {
             sb.append("| ");
-            for (String value : row.values()) {
+            for (String value : key) {
                 sb.append(value).append(" | ");
             }
-            sb.append("\n");
+            sb.append(probTable.get(key)).append(" |\n");
         }
         return sb.toString();
     }

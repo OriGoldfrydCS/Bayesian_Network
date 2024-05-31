@@ -1,7 +1,4 @@
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class VariableElimination {
     private BayesianNetwork network;
@@ -18,19 +15,19 @@ public class VariableElimination {
         System.out.println("Query: " + queryVariable + ", Evidence: " + evidence);
         List<Factor> factors = initializeFactors(evidence);
         System.out.println("Initial Factors: " + factors);
-
         List<Node> hidden = getSortedHiddenNodes(evidence, queryVariable, algorithm);
         for (Node node : hidden) {
             factors = sumOut(node, factors);
             System.out.println("Factors after summing out " + node.getNodeName() + ": " + factors);
         }
-
         Factor result = combineFactors(factors);
         System.out.println("Final Combined Factor: " + result);
-        double probability = normalize(result.getProbability(queryVariable));
-        System.out.println("Probability: " + probability);
 
-        return new Object[] { probability, this.additions, this.multiplications };
+        List<String> queryVariables = new ArrayList<>();
+        queryVariables.add(queryVariable);
+        double probability = normalize(result.getProbability(queryVariables));
+        System.out.println("Probability: " + probability);
+        return new Object[]{probability, this.additions, this.multiplications};
     }
 
     private List<Node> getSortedHiddenNodes(Map<String, String> evidence, String queryVariable, char algorithm) {
@@ -62,9 +59,29 @@ public class VariableElimination {
     private List<Factor> initializeFactors(Map<String, String> evidence) {
         List<Factor> factors = new ArrayList<>();
         for (Node node : this.network.getNodes()) {
-            factors.add(new Factor(node, evidence));
+            if (!evidence.containsKey(node.getNodeName())) {
+                Map<List<String>, Double> probabilityTable = new HashMap<>();
+                int stateIndex = 0;
+                for (String state : node.getPossibleStates()) {
+                    List<String> key = new ArrayList<>();
+                    key.add(state);
+                    double probability = getProbability(node, state);
+                    probabilityTable.put(key, probability);
+                    stateIndex++;
+                }
+                factors.add(new Factor(List.of(node), probabilityTable));
+            }
         }
         return factors;
+    }
+
+    private double getProbability(Node node, String outcome) {
+        List<String> key = new ArrayList<>();
+        key.add(outcome);
+        for (Node parent : node.getParents()) {
+            key.add(parent.getPossibleStates().get(0)); // Assuming each parent has only one possible state
+        }
+        return node.getCPT().getProbability(key);
     }
 
     private List<Factor> sumOut(Node node, List<Factor> factors) {
