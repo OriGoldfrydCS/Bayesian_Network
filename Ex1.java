@@ -10,30 +10,43 @@ public class Ex1 {
     public static void main(String[] args) {
         try {
             BayesianNetwork network = XMLParser.parse("alarm_net.xml");
-//            BayesianNetwork network = XMLParser.parse("big_net.xml");
             List<String> queries = readQueries("input.txt");
+//            BayesianNetwork network = XMLParser.parse("big_net.xml");
 //            List<String> queries = readQueries("input2.txt");
             List<String> results = processQueries(network, queries);
-            writeToOutputFile("output.txt", results);
+            writeToOutputFile(results);
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.printf("Error reading XML %s\n", e.getMessage());
         }
+    }
+
+    private static List<String> readQueries(String file) {
+        List<String> queries = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            br.readLine();      // We will Skip the first line in the XML file (XML file name)
+            String line;
+            while ((line = br.readLine()) != null) {
+                queries.add(line);
+            }
+        } catch (IOException e) {
+            System.err.printf("Error reading file: %s\n", e.getMessage());
+        }
+        return queries;
     }
 
     private static List<String> processQueries(BayesianNetwork network, List<String> queries) {
         List<String> results = new ArrayList<>();
         VariableElimination ve = new VariableElimination(network);
-        BayesBall bb = new BayesBall();
 
         for (String query : queries) {
             if (query.startsWith("P(")) {
                 String result = processVariableEliminationQuery(ve, query);
                 results.add(result);
-            } else if (query.contains("-")) {
+            } else if (!(query.startsWith("P"))) {
                 String result = processIndependenceQuery(network, query);
                 results.add(result);
             } else {
-                System.out.println("Unhandled query format: " + query);
+                System.out.printf("Unhandled query format: %s%n", query);
             }
         }
         return results;
@@ -43,11 +56,11 @@ public class Ex1 {
         String[] parts = query.split("\\|");
         String[] nodes = parts[0].split("-");
         ArrayList<Node> evidenceList = new ArrayList<>();
-        System.out.println("Processing query: " + query);
+        System.out.printf("Processing query: %s%n", query);
 
         if (parts.length > 1) {
             String[] evidenceParts = parts[1].split(",");
-            System.out.println("Evidence provided: " + String.join(", ", evidenceParts));
+            System.out.printf("Evidence provided: %s%n", String.join(", ", evidenceParts));
 
             for (String evidence : evidenceParts) {
                 String ev = evidence.trim();
@@ -56,9 +69,9 @@ public class Ex1 {
                 Node evidenceNode = network.getNodeByName(nodeName);
                 if (evidenceNode != null) {
                     evidenceList.add(evidenceNode);
-                    System.out.println("Added " + nodeName + " to evidence list.");
+                    System.out.printf("Added %s to evidence list.%n", nodeName);
                 } else {
-                    System.out.println("Error: Node " + nodeName + " not found in network.");
+                    System.out.printf("Error: Node %s not found in network.%n", nodeName);
                 }
             }
         } else {
@@ -66,11 +79,9 @@ public class Ex1 {
         }
 
         String result = BayesBall.checkIndependence(network, network.getNodeByName(nodes[0].trim()), network.getNodeByName(nodes[1].trim()), evidenceList);
-        System.out.println("Result of independence check between " + nodes[0].trim() + " and " + nodes[1].trim() + ": " + result);
+        System.out.printf("Result of independence check between %s and %s: %s%n", nodes[0].trim(), nodes[1].trim(), result);
         return result;
     }
-
-
 
     private static String processVariableEliminationQuery(VariableElimination ve, String query) {
         String[] parts = query.split("\\|");
@@ -81,31 +92,18 @@ public class Ex1 {
             String[] ev = evidence.split("=");
             evidenceMap.put(ev[0], ev[1]);
         }
-        Object[] result = ve.query(evidenceMap, queryPart, '2');
-        return String.format("%.5f,%d,%d", (double)result[0], (int)result[1], (int)result[2]);
+//        Object[] result = ve.query(evidenceMap, queryPart, '2');
+//        return String.format("%.5f,%d,%d", (double)result[0], (int)result[1], (int)result[2]);
+        return "0";
     }
 
-    private static List<String> readQueries(String filePath) {
-        List<String> queries = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            br.readLine();      // We will Skip the first line in the XML file (XML file name)
-            String line;
-            while ((line = br.readLine()) != null) {
-                queries.add(line);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return queries;
-    }
-
-    private static void writeToOutputFile(String filePath, List<String> results) {
-        try (FileOutput fileOutput = new FileOutput(filePath)) {
+    private static void writeToOutputFile(List<String> results) {
+        try (FileOutput fileOutput = new FileOutput("output.txt")) {
             for (String result : results) {
                 fileOutput.writeLine(result);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.printf("Error writing to output file: %s%n", e);
         }
     }
 }

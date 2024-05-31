@@ -24,27 +24,32 @@ public class XMLParser {
         doc.getDocumentElement().normalize();
 
         // Parse the VARIABLE elements and add them to the network
-        NodeList variableList = doc.getElementsByTagName("VARIABLE");
-        for (int i = 0; i < variableList.getLength(); i++) {
-            Element element = (Element) variableList.item(i);
-            String name = element.getElementsByTagName("NAME").item(0).getTextContent();
-            List<String> outcomes = new ArrayList<>();
+        NodeList nodeList = doc.getElementsByTagName("VARIABLE");
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            Element element = (Element) nodeList.item(i);
+            String name = null;
+            NodeList nameList = element.getElementsByTagName("NAME");
+            if (nameList.getLength() > 0) {
+                name = nameList.item(0).getTextContent();
+            }
+            ArrayList<String> outcomes = new ArrayList<>();
             NodeList outcomeList = element.getElementsByTagName("OUTCOME");
             for (int j = 0; j < outcomeList.getLength(); j++) {
                 outcomes.add(outcomeList.item(j).getTextContent());
             }
-            Variable variable = new Variable(name, outcomes);
-            network.addVariable(variable);
+            Node node = new Node(name);
+            node.addPossibleStates(outcomes);
+            network.addNode(node);
         }
 
         // Parse the DEFINITION elements and create or retrieve the corresponding nodes
         NodeList definitionList = doc.getElementsByTagName("DEFINITION");
         for (int i = 0; i < definitionList.getLength(); i++) {
             Element element = (Element) definitionList.item(i);
-            String forVariable = element.getElementsByTagName("FOR").item(0).getTextContent();
-            Node node = network.getNodeByName(forVariable);
+            String forNode = element.getElementsByTagName("FOR").item(0).getTextContent();
+            Node node = network.getNodeByName(forNode);
             if (node == null) {
-                node = new Node(forVariable);
+                node = new Node(forNode);
                 network.addNode(node);
             }
 
@@ -63,10 +68,12 @@ public class XMLParser {
             node.buildCPT(probabilities);
         }
 
-        System.out.println("Variables:");
-        for (Node node : network.getNodes()) {
+        System.out.println("Nodes:");
+        for (Node node : network.getNodes().values()) { // Modify this line
             System.out.println(node);
         }
+
+        network.printNetwork();
 
         return network;
     }

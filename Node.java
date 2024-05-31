@@ -1,4 +1,5 @@
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Node {
     private String nodeName;
@@ -11,6 +12,7 @@ public class Node {
     private boolean isColored;
     private boolean isVisitedFromParent;
     private boolean isVisitedFromChild;
+    
 
     public Node(String nodeName) {
         this.nodeName = nodeName;
@@ -22,6 +24,7 @@ public class Node {
         this.isColored = false;
         this.isVisitedFromParent = false;
         this.isVisitedFromChild = false;
+
     }
 
     public Node(Node other) {
@@ -43,26 +46,35 @@ public class Node {
                 parentNode.addChild(this);
             } else {
                 this.parents.add(new Node(parentName));
-                this.cpt.addParent(new Variable(parentName, new ArrayList<>()));
+                this.cpt.addParent(new Node(parentName));
             }
         }
     }
 
     public void buildCPT(String[] table) {
-        int index = 0;
         List<List<String>> keys = new ArrayList<>();
-        for (String state : this.possibleStates) {
+        int numParentStates = 1;
+        for (Node parent : this.parents) {
+            numParentStates *= parent.getPossibleStates().size();
+        }
+        int totalStates = numParentStates * this.possibleStates.size();
+
+        for (int i = 0; i < totalStates; i++) {
+            int index = i;
             List<String> key = new ArrayList<>();
-            key.add(state);
+            // First add the parent states
             for (Node parent : this.parents) {
-                key.add(parent.getPossibleStates().get(index % parent.getPossibleStates().size()));
-                index /= parent.getPossibleStates().size();
+                int parentStateCount = parent.getPossibleStates().size();
+                key.add(parent.getPossibleStates().get(index % parentStateCount));
+                index /= parentStateCount;
             }
+            // Then add the node state
+            key.add(this.possibleStates.get(i / numParentStates % this.possibleStates.size()));
             Collections.reverse(key);
-            keys.add(key);
-            this.cpt.setProbability(key, Double.parseDouble(table[index++]));
+            this.cpt.setProbability(key, Double.parseDouble(table[i]));
         }
     }
+
 
     private HashMap<String, String> createCPTRow(String probability) {
         HashMap<String, String> row = new HashMap<>();
@@ -153,7 +165,7 @@ public class Node {
         return this.factor.getValue();
     }
 
-    public void setPossibleStates(ArrayList<String> outcomes) {
+    public void addPossibleStates(ArrayList<String> outcomes) {
         this.possibleStates = new ArrayList<>(outcomes);
     }
 
@@ -172,6 +184,16 @@ public class Node {
         }
         key.add(row.get(this.nodeName));
         this.cpt.setProbability(key, Double.parseDouble(row.get("P")));
+    }
+
+    // Method to add an edge from this node to another (child)
+    public void addEdge(Node child) {
+        if (!this.children.contains(child)) {
+            this.children.add(child);
+            if (!child.parents.contains(this)) {
+                child.parents.add(this);
+            }
+        }
     }
 
     @Override
@@ -203,8 +225,41 @@ public class Node {
         }
         sb.append("\n");
         sb.append("CPT:\n");
+
+        // Formatting header according to specific requirements
+        if (!parents.isEmpty()) {
+            for (Node parent : parents) {
+                sb.append("| ").append(parent.getNodeName()).append(" ");
+            }
+        }
+        sb.append("| ").append(nodeName).append(" | P(").append(nodeName);
+        if (!parents.isEmpty()) {
+            sb.append(" | ");
+            for (Node parent : parents) {
+                sb.append(parent.getNodeName());
+                if (parents.indexOf(parent) < parents.size() - 1) {
+                    sb.append(", ");
+                } else {
+                    sb.append(") | \n");
+                }
+            }
+        } else {
+            sb.append(") | \n");
+        }
+
+        // Sorting keys to maintain consistent order from all 'T' to all 'F'
         Map<List<String>, Double> probTable = this.cpt.getProbabilityTable();
-        for (List<String> key : probTable.keySet()) {
+        List<List<String>> sortedKeys = new ArrayList<>(probTable.keySet());
+        sortedKeys.sort((a, b) -> {
+            for (int i = a.size() - 1; i >= 0; i--) { // Reverse for proper T-F order
+                int comp = b.get(i).compareTo(a.get(i)); // Reverse comparison for T to F
+                if (comp != 0) return comp;
+            }
+            return 0;
+        });
+
+        // Adding rows
+        for (List<String> key : sortedKeys) {
             sb.append("| ");
             for (String value : key) {
                 sb.append(value).append(" | ");
@@ -213,4 +268,15 @@ public class Node {
         }
         return sb.toString();
     }
+
+//    public String toString() {
+//        return String.format("Node{%s, States=%s, Parents=%s, Children=%s}",
+//                nodeName,
+//                possibleStates.toString(),
+//                parents.stream().map(Node::getNodeName).collect(Collectors.toList()),
+//                children.stream().map(Node::getNodeName).collect(Collectors.toList()));
+//    }
+
+
+
 }

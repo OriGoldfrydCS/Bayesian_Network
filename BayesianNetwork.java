@@ -1,74 +1,66 @@
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class BayesianNetwork {
-    private List<Variable> variables;
-    private List<Node> nodes;
+    private Map<String, Node> nodes;
 
     public BayesianNetwork() {
-        this.variables = new ArrayList<>();
-        this.nodes = new ArrayList<>();
-    }
-
-    public void addVariable(Variable variable) {
-        this.variables.add(variable);
-    }
-
-    public Variable getVariable(String name) {
-        for (Variable variable : this.variables) {
-            if (variable.getVariableName().equals(name)) {
-                return variable;
-            }
-        }
-        return null;
-    }
-
-    public List<Variable> getVariables() {
-        return this.variables;
+        this.nodes = new HashMap<>();
     }
 
     public void addNode(Node node) {
-        this.nodes.add(node);
+        nodes.put(node.getNodeName(), node);
     }
 
     public Node getNodeByName(String name) {
-        for (Node node : this.nodes) {
-            if (node.getNodeName().equals(name)) {
-                return node;
-            }
-        }
-        return null;
-    }
-
-    public List<Node> getNodes() {
-        return this.nodes;
+        return nodes.get(name);
     }
 
     public void setParents(Node node, List<String> parentNames) {
         for (String parentName : parentNames) {
-            Node parentNode = getNodeByName(parentName);
-            if (parentNode != null) {
-                node.addParent(parentNode);
-                parentNode.addChild(node);
-            } else {
-                node.addParent(new Node(parentName));
+            Node parent = getNodeByName(parentName);
+            if (parent != null) {
+                node.addParent(parent);
+                parent.addChild(node);
             }
         }
     }
 
-    private boolean deleteNodes(Map<String, String> evidence) {
-        boolean deleted = false;
-        for (Node node : this.getNodes()) {
-            String name = node.getNodeName();
-            if (!evidence.containsKey(name) && !node.hasParents()) {
-                this.nodes.remove(name);
-                deleted = true;
-            }
-        }
-        return deleted;
+    public Map<String, Node> getNodes() {
+        return nodes;
     }
 
-    private boolean hasNoParents(String name) {
-        Node node = this.getNodeByName(name);
-        return node != null && node.getParents().isEmpty();
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("BayesianNetwork:\n");
+        for (Node node : nodes.values()) {
+            sb.append(node.toString()).append("\n");
+        }
+        return sb.toString();
     }
+
+
+    /**
+     * Prints a more graphical representation of the network suitable for visualization
+     * tools such as Graphviz. Outputs the graph in DOT format.
+     */
+    public void printNetwork() {
+        System.out.println("\nASCII Representation of Bayesian Network:");
+        for (Node node : nodes.values()) {
+            System.out.println("Node: " + node.getNodeName());
+            if (!node.getChildren().isEmpty()) {
+                System.out.print("  |---> Children: ");
+                node.getChildren().forEach(child -> System.out.print(child.getNodeName() + " "));
+                System.out.println();
+            }
+            if (!node.getParents().isEmpty()) {
+                System.out.print("Parents: ");
+                node.getParents().forEach(parent -> System.out.print(parent.getNodeName() + " "));
+                System.out.println("|---> ");
+            }
+        }
+    }
+
+
 }

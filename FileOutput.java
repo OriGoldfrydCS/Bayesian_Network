@@ -3,7 +3,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 public class FileOutput implements AutoCloseable {
-    private PrintWriter writer;
+    private final PrintWriter writer;
 
     public FileOutput(String fileName) throws IOException {
         writer = new PrintWriter(new FileWriter(fileName));

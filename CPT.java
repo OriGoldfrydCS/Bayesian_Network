@@ -2,7 +2,7 @@ import java.util.*;
 
 public class CPT {
     private Node node;
-    private List<Variable> parents;
+    private List<Node> parents;
     private Map<List<String>, Double> probabilityTable;
 
     public CPT(Node node) {
@@ -17,11 +17,11 @@ public class CPT {
         this.probabilityTable = new HashMap<>(other.getProbabilityTable());
     }
 
-    public void addParent(Variable parent) {
+    public void addParent(Node parent) {
         this.parents.add(parent);
     }
 
-    public void removeParent(Variable parent) {
+    public void removeParent(Node parent) {
         this.parents.remove(parent);
     }
 
@@ -37,7 +37,7 @@ public class CPT {
         return node;
     }
 
-    public List<Variable> getParents() {
+    public List<Node> getParents() {
         return parents;
     }
 
