@@ -12,7 +12,8 @@ public class Node {
     private boolean isColored;
     private boolean isVisitedFromParent;
     private boolean isVisitedFromChild;
-    
+    private String color;
+
 
     public Node(String nodeName) {
         this.nodeName = nodeName;
@@ -24,6 +25,7 @@ public class Node {
         this.isColored = false;
         this.isVisitedFromParent = false;
         this.isVisitedFromChild = false;
+        this.color = "white";  // Default color
 
     }
 
@@ -194,6 +196,37 @@ public class Node {
                 child.parents.add(this);
             }
         }
+    }
+    // Setters for visitation states
+    public void visitFromParent() {
+        this.isVisitedFromParent = true;
+    }
+
+    public void visitFromChild() {
+        this.isVisitedFromChild = true;
+    }
+
+    // Checkers for visitation states
+    public boolean isVisitedFromParent() {
+        return isVisitedFromParent;
+    }
+
+    public boolean isVisitedFromChild() {
+        return isVisitedFromChild;
+    }
+
+    // Color handling methods
+    public void setColor(String color) {
+        this.color = color;
+        this.isColored = true;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public boolean isColored() {
+        return isColored;
     }
 
     @Override
