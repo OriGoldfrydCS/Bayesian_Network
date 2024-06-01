@@ -1,3 +1,4 @@
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,8 +28,12 @@ public class BayesianNetwork {
         }
     }
 
-    public Map<String, Node> getNodes() {
-        return nodes;
+//    public Map<String, Node> getNodes() {
+//        return nodes;
+//    }
+
+    public Collection<Node> getNodes() {
+        return nodes.values();
     }
 
     @Override

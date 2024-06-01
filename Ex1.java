@@ -13,6 +13,8 @@ public class Ex1 {
             List<String> queries = readQueries("input.txt");
 //            BayesianNetwork network = XMLParser.parse("big_net.xml");
 //            List<String> queries = readQueries("input2.txt");
+//            BayesianNetwork network = XMLParser.parse("my_net.xml");
+//            List<String> queries = readQueries("input3.txt");
             List<String> results = processQueries(network, queries);
             writeToOutputFile(results);
         } catch (Exception e) {

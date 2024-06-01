@@ -5,12 +5,19 @@ import java.util.Set;
 public class BayesBall {
 
     // Colors for different types of nodes
+    private static final String UNVISITED_COLOR = "white";
     private static final String EVIDENCE_COLOR = "red";
     private static final String QUERY_COLOR = "blue";
     private static final String VISITED_COLOR = "green";
     private static final String TARGET_COLOR = "black";
 
     public static String checkIndependence(BayesianNetwork network, Node queryNode, Node targetNode, ArrayList<Node> evidences) {
+
+        // Reset all node colors to 'white' before starting a new query
+        for (Node node : network.getNodes()) {
+            node.setColor(UNVISITED_COLOR);
+            node.setIsColored(false);
+        }
 
         // Initial check for equality
         if(queryNode.getNodeName().equals(targetNode.getNodeName())) {
@@ -26,7 +33,7 @@ public class BayesBall {
             Set<Node> visited = new HashSet<>();
             queryNode.setColor(QUERY_COLOR);  // Color the query node
             System.out.printf("Starting traversal from query node: %s [%s]%n", queryNode.getNodeName(), QUERY_COLOR);
-            traverse(queryNode, null, visited, false, true, network, queryNode, targetNode);
+            traverse(queryNode, null, visited, false, false, network, queryNode, targetNode);
 
             // Check if target node was visited
             System.out.printf("Checking if target node was visited: %s - Visited: %s%n", targetNode.getNodeName(), targetNode.isColored());
@@ -38,14 +45,16 @@ public class BayesBall {
                                  boolean reachedFromChild, boolean reachedFromParent, BayesianNetwork network, Node queryNode, Node targetNode) {
         System.out.printf("Visiting node: %s from node: %s%n", currentNode.getNodeName(), comingFrom != null ? comingFrom.getNodeName() : "null");
 
-        // Check for revisits to avoid infinite loops
-        if (!visited.add(currentNode)) {
-            System.out.printf("Already visited: %s%n", currentNode.getNodeName());
+        visited.add(currentNode);
+//
+//        // Check for revisits to avoid infinite loops
+//        if (!visited.add(currentNode)) {
+//            System.out.printf("Already visited: %s%n", currentNode.getNodeName());
 //            return; // Node already visited, avoid cycle
-        }
+//        }
 
         // Apply color if not a special node
-        if (!currentNode.getColor().equals(EVIDENCE_COLOR) && !currentNode.getColor().equals(QUERY_COLOR)) {
+        if (currentNode.getColor().equals(UNVISITED_COLOR)) {
             currentNode.setColor(VISITED_COLOR);
             System.out.printf("Node colored [%s]: %s%n", VISITED_COLOR, currentNode.getNodeName());
         }
@@ -60,16 +69,19 @@ public class BayesBall {
             // Only traverse to other parents if reached from a parent
             if (reachedFromParent) {
                 for (Node parent : currentNode.getParents()) {
-                        System.out.printf("Going to parent: %s from evidence node: %s%n", parent.getNodeName(), currentNode.getNodeName());
-                        traverse(parent, currentNode, visited, true, false, network, queryNode, targetNode);
+                    System.out.printf("Going to parent: %s from evidence node: %s%n", parent.getNodeName(), currentNode.getNodeName());
+                    traverse(parent, currentNode, visited, true, false, network, queryNode, targetNode);
                 }
             }
+
         } else {
             // Non-evidence nodes
-            if (reachedFromParent) {
+            if (reachedFromParent || comingFrom == null) {
                 // Reached from parent: continue to children
                 for (Node child : currentNode.getChildren()) {
-                    if (child != comingFrom) {
+//                    if (child != comingFrom) {
+                    if (!visited.contains(child)) {
+
                         System.out.printf("Going to child: %s from node: %s%n", child.getNodeName(), currentNode.getNodeName());
                         if (child.equals(queryNode)) {
                             System.out.println("Target node found, returning 'no' (dependent)");
@@ -82,7 +94,9 @@ public class BayesBall {
             } else if (reachedFromChild) {
                 // Reached from child: continue to both children and parents
                 for (Node child : currentNode.getChildren()) {
-                    if (child != comingFrom) {
+                    if (!visited.contains(child) && child != comingFrom) {
+
+//                    if (child != comingFrom) {
                         System.out.printf("Going to child: %s from node: %s%n", child.getNodeName(), currentNode.getNodeName());
                         if (child.equals(queryNode)) {
                             System.out.println("Target node found, returning 'no' (dependent)");
@@ -93,7 +107,9 @@ public class BayesBall {
                     }
                 }
                 for (Node parent : currentNode.getParents()) {
-                    if (parent != comingFrom) {
+                    if (!visited.contains(parent) && parent != comingFrom) {
+
+//                        if (parent != comingFrom) {
                         System.out.printf("Going to parent: %s from node: %s%n", parent.getNodeName(), currentNode.getNodeName());
                         if (parent.equals(targetNode)) {
                             System.out.println("Target node found, returning 'no' (dependent)");

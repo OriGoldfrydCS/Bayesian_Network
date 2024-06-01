@@ -69,7 +69,7 @@ public class XMLParser {
         }
 
         System.out.println("Nodes:");
-        for (Node node : network.getNodes().values()) { // Modify this line
+        for (Node node : network.getNodes()) { // Modify this line
             System.out.println(node);
         }
 

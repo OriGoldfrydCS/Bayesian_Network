@@ -229,6 +229,9 @@ public class Node {
         return isColored;
     }
 
+    public void setIsColored(boolean bool){
+        this.isColored = bool;
+    }
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
