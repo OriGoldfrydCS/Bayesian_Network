@@ -20,7 +20,7 @@ public class Node {
         this.children = new ArrayList<>();
         this.parents = new ArrayList<>();
         this.possibleStates = new ArrayList<>();
-        this.factor = new Factor(new ArrayList<>(), new HashMap<>());
+//        this.factor = new Factor(new ArrayList<>(), new HashMap<>());
         this.cpt = new CPT(this);
         this.isColored = false;
         this.isVisitedFromParent = false;
@@ -35,7 +35,7 @@ public class Node {
         this.children = new ArrayList<>(other.getChildren());
         this.possibleStates = new ArrayList<>(other.getPossibleStates());
         this.cpt = new CPT(other.getCPT());
-        this.factor = new Factor(other.getFactor());
+//        this.factor = new Factor(other.getFactor());
     }
 
     public Node(String nodeName, List<String> parentNames, BayesianNetwork network) {
@@ -48,7 +48,7 @@ public class Node {
                 parentNode.addChild(this);
             } else {
                 this.parents.add(new Node(parentName));
-                this.cpt.addParent(new Node(parentName));
+//                this.cpt.addParent(new Node(parentName));
             }
         }
     }
@@ -64,19 +64,83 @@ public class Node {
         for (int i = 0; i < totalStates; i++) {
             int index = i;
             List<String> key = new ArrayList<>();
-            // First add the parent states
             for (Node parent : this.parents) {
                 int parentStateCount = parent.getPossibleStates().size();
                 key.add(parent.getPossibleStates().get(index % parentStateCount));
                 index /= parentStateCount;
             }
-            // Then add the node state
             key.add(this.possibleStates.get(i / numParentStates % this.possibleStates.size()));
             Collections.reverse(key);
             this.cpt.setProbability(key, Double.parseDouble(table[i]));
         }
     }
 
+//    public Factor createFactor() {
+//        Map<String, Double> probabilityTable = new HashMap<>();
+//        StringBuilder factorLabelBuilder = new StringBuilder();
+//
+//        // Create a factor label including the node
+//        factorLabelBuilder.append(this.nodeName);
+//
+//        // Populate the probability table
+//        for (Map.Entry<List<String>, Double> entry : this.cpt.getProbabilityTable().entrySet()) {
+//            List<String> key = entry.getKey();
+//            StringBuilder sb = new StringBuilder();
+//            for (int i = 0; i < key.size(); i++) {
+//                if (i > 0) sb.append(",");
+//                sb.append(this.parents.size() > i ? this.parents.get(i).getNodeName() : this.nodeName)
+//                        .append("=").append(key.get(i));
+//            }
+//            probabilityTable.put(sb.toString(), entry.getValue());
+//        }
+//        return new Factor(probabilityTable, factorLabelBuilder.toString());
+//    }
+
+    public Factor createFactor() {
+        Map<String, Double> probabilityTable = new HashMap<>();
+        List<String> dependencies = new ArrayList<>();
+
+        // Node itself is also a part of the dependencies
+        dependencies.add(this.nodeName);
+        for (Node parent : this.parents) {
+            dependencies.add(parent.getNodeName());
+        }
+
+        // Collect keys in the correct order according to the CPT
+        for (Map.Entry<List<String>, Double> entry : this.cpt.getProbabilityTable().entrySet()) {
+            List<String> keyComponents = entry.getKey();
+            StringBuilder sb = new StringBuilder();
+
+            // Process parents first
+            for (int i = 0; i < this.parents.size(); i++) {
+                if (sb.length() > 0) sb.append(",");
+                sb.append(this.parents.get(i).getNodeName()).append("=").append(keyComponents.get(i));
+            }
+
+            // Add the target node (this node) with handling to not prepend a comma if there are no parents
+            if (sb.length() > 0) sb.append(",");
+            sb.append(this.nodeName).append("=").append(keyComponents.get(keyComponents.size() - 1));
+
+            probabilityTable.put(sb.toString(), entry.getValue());
+        }
+
+        return new Factor(probabilityTable, dependencies);
+    }
+
+
+//    public Factor createFactor() {
+//        Map<String, Double> factorTable = new HashMap<>();
+//        // Assuming the CPT table is formatted correctly in the Node class
+//        for (Map.Entry<List<String>, Double> entry : this.cpt.getProbabilityTable().entrySet()) {
+//            StringBuilder sb = new StringBuilder();
+//            for (int i = 0; i < entry.getKey().size(); i++) {
+//                if (i > 0) sb.append(",");
+//                sb.append(entry.getKey().get(i));
+//            }
+//            factorTable.put(sb.toString(), entry.getValue());
+//        }
+//        return new Factor(factorTable, "f" + nodeName); // nodeName or some other identifier
+//    }
 
     private HashMap<String, String> createCPTRow(String probability) {
         HashMap<String, String> row = new HashMap<>();
@@ -163,9 +227,9 @@ public class Node {
         return this.cpt.getProbabilityTable().size();
     }
 
-    public double getFactorValue() {
-        return this.factor.getValue();
-    }
+//    public double getFactorValue() {
+//        return this.factor.getValue();
+//    }
 
     public void addPossibleStates(ArrayList<String> outcomes) {
         this.possibleStates = new ArrayList<>(outcomes);
@@ -175,9 +239,9 @@ public class Node {
         this.factor = factor;
     }
 
-    public void setFactorValue(double value) {
-        this.factor.setValue(value);
-    }
+//    public void setFactorValue(double value) {
+//        this.factor.setValue(value);
+//    }
 
     public void setCPTRow(int index, HashMap<String, String> row) {
         List<String> key = new ArrayList<>();

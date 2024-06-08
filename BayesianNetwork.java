@@ -46,10 +46,6 @@ public class BayesianNetwork {
     }
 
 
-    /**
-     * Prints a more graphical representation of the network suitable for visualization
-     * tools such as Graphviz. Outputs the graph in DOT format.
-     */
     public void printNetwork() {
         System.out.println("\nASCII Representation of Bayesian Network:");
         for (Node node : nodes.values()) {

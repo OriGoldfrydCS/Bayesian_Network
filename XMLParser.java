@@ -44,6 +44,7 @@ public class XMLParser {
 
         // Parse the DEFINITION elements and create or retrieve the corresponding nodes
         NodeList definitionList = doc.getElementsByTagName("DEFINITION");
+        int factorIndex = 1;
         for (int i = 0; i < definitionList.getLength(); i++) {
             Element element = (Element) definitionList.item(i);
             String forNode = element.getElementsByTagName("FOR").item(0).getTextContent();
@@ -66,6 +67,19 @@ public class XMLParser {
             String table = element.getElementsByTagName("TABLE").item(0).getTextContent();
             String[] probabilities = table.split(" ");
             node.buildCPT(probabilities);
+
+            // Create and assign a Factor to the node
+            Factor factor = node.createFactor();
+            node.setFactor(factor);
+        }
+
+        // Print the initial factors
+        System.out.println("\nInitial Factors:");
+        for (Node node : network.getNodes()) {
+            Factor factor = node.getFactor();
+            if (factor != null) {
+                System.out.println(factor);
+            }
         }
 
         System.out.println("Nodes:");
@@ -76,5 +90,64 @@ public class XMLParser {
         network.printNetwork();
 
         return network;
+    }
+
+    public static void main(String[] args) throws Exception {
+        BayesianNetwork network = XMLParser.parse("big_net.xml");
+
+        // Accessing a specific node's factor and applying a filter
+        Node nodeB1 = network.getNodeByName("B1");
+        Node nodeC2 = network.getNodeByName("C2");
+        Node nodeD1 = network.getNodeByName("D1");
+
+        if (nodeB1 == null || nodeC2 == null || nodeD1 == null) {
+            System.out.println("One or both nodes not found.");
+            return;
+        }
+
+        Factor factorB1 = nodeB1.getFactor();
+        Factor factorC2 = nodeC2.getFactor();
+        Factor factorD1 = nodeD1.getFactor();
+
+        if (factorB1 == null || factorC2 == null) {
+            System.out.println("One or both factors not found.");
+            return;
+        }
+        System.out.println((factorD1.getFactorLabel()) + " " + (factorB1.getFactorLabel()) + " " + (factorC2.getFactorLabel()));
+        // Print original factors
+        System.out.println("Original Factor J:");
+        System.out.println(factorB1);
+        System.out.println("Original Factor M:");
+        System.out.println(nodeC2);
+        System.out.println("Original Factor A:");
+        System.out.println(factorD1);
+
+        // Filtering based on evidence
+        Map<String, String> evidencesJ = new HashMap<>();
+        evidencesJ.put("J", "T");
+        factorB1.filterRows(evidencesJ);
+
+        Map<String, String> evidencesM = new HashMap<>();
+        evidencesM.put("M", "T");
+        factorC2.filterRows(evidencesM);
+
+        // Filtering based on combined evidence for A (E=T and B=T)
+        Map<String, String> evidencesA = new HashMap<>();
+        evidencesA.put("E", "T");
+        evidencesA.put("B", "T");
+        factorD1.filterRows(evidencesA);
+
+        // Print filtered factors
+        System.out.println("Filtered Factor J (J=T):");
+        System.out.println(factorB1);
+        System.out.println("Filtered Factor M (M=T):");
+        System.out.println(factorC2);
+        System.out.println("Filtered Factor A (E=T, B=T):");
+        System.out.println(factorD1);
+
+        // Join the filtered factors
+//        Factor joinedFactor = Factor.joinFactors(factorB1, factorC2);
+        System.out.println("Joined Factor after filtering:");
+//        System.out.println(joinedFactor);
     }
 }
