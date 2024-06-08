@@ -11,8 +11,8 @@ public class VariableElimination {
     private Map<Node, String> nodeEvidenceMap;
     private Node queryNode;
     private String queryOutcome;
-    private int multiplicationCount;
-    private int additionCount;
+//    private int multiplicationCount;
+//    private int additionCount;
 
     public VariableElimination(BayesianNetwork network, String query, String[] hidden, String[] evidence) {
         this.network = network;
@@ -22,8 +22,8 @@ public class VariableElimination {
         this.hiddenOrder = Arrays.asList(hidden);  // Initialize the order of hidden nodes from input
         this.evidenceNodes = new ArrayList<>();
         this.nodeEvidenceMap = new HashMap<>();
-        this.multiplicationCount = 0;
-        this.additionCount = 0;
+//        this.multiplicationCount = 0;
+//        this.additionCount = 0;
 
 
         parseQuery(query);
@@ -243,14 +243,15 @@ public class VariableElimination {
 
 
     public String getFinalAnswer() {
-        // Find the factor with the query node and extract the probability
+        double probability = 0;
         for (Factor factor : factors) {
             if (factor.involvesVariable(queryNode.getNodeName())) {
-                double probability = factor.getProbability(queryNode.getNodeName(), queryOutcome);
-                return String.format("%.5f", probability); // Format to 5 decimal places
+                probability = factor.getProbability(queryNode.getNodeName(), queryOutcome);
+                break;
             }
         }
-        return "Probability not found.";
+
+        return String.format("%.5f,%d,%d", probability, Factor.getAdditionCount(), Factor.getMultiplicationCount());
     }
 
     /// important ///////////////////////////////////////////////////////
@@ -277,8 +278,12 @@ public class VariableElimination {
 
     public void runVariableElimination() {
         factors = new ArrayList<>(initialFactors);  // Reset factors to initial state
+        Factor.resetCounts();  // Resetting multiplication and addition counts before each run
         applyEvidence();
         Set<String> evidenceVariableNames = getEvidenceVariableNames();
+        Collections.sort(factors);  // Use compareTo for sorting before joining
+
+        System.out.println("Starting variable elimination with query node: " + queryNode.getNodeName() + "=" + queryOutcome);
 
         // Eliminate each hidden variable as per the order provided
         for (String hiddenVar : hiddenOrder) {
@@ -292,40 +297,89 @@ public class VariableElimination {
                 }
             }
 
-
-
             // Join factors that involve the hidden variable
             while (factorsToJoin.size() > 1) {
-                Collections.sort(factors);  // Use compareTo for sorting before joining
 
-//                factorsToJoin.sort(Comparator.comparingInt(Factor::getTableSize));  // Optional: Sort by size to optimize join process
                 Factor joinedFactor = Factor.joinFactors(factorsToJoin.get(0), factorsToJoin.get(1), evidenceVariableNames);
                 factorsToJoin.remove(0);
                 factorsToJoin.remove(0);
                 factorsToJoin.add(0, joinedFactor);  // Add the newly joined factor at the start of the list
+
+//                if (isDirectAnswer(joinedFactor)) {
+//                    System.out.println("Direct answer possible after joining, proceeding to normalization.");
+//                    factors.add(joinedFactor);
+//                    normalizeFinalFactors();
+//                    return;
+//                }
             }
 
             // After joining all factors involving the hidden variable, eliminate the variable
             if (!factorsToJoin.isEmpty()) {
                 Factor remainingFactor = factorsToJoin.get(0);
                 remainingFactor.eliminateFactor(hiddenVar);
+                System.out.println("Post-elimination factor size: " + remainingFactor.getProbabilityTable().size());
+
                 factors.add(remainingFactor);  // Add the modified factor back to the main list
+
+                if (isDirectAnswer(remainingFactor)) {
+                    System.out.println("Direct answer possible after elimination, proceeding to normalization.");
+                    normalizeFinalFactors();
+                    return;
+                }
             }
         }
 
         // If multiple factors remain, join them into a single factor
         while (factors.size() > 1) {
-            Collections.sort(factors);  // Use compareTo for sorting before joining
-
             Factor joinedFactor = Factor.joinFactors(factors.get(0), factors.get(1), evidenceVariableNames);
+            System.out.println("Final join factor size: " + joinedFactor.getProbabilityTable().size());
+
             factors.remove(0);
             factors.remove(0);
             factors.add(joinedFactor);
+
+//            if (isDirectAnswer(joinedFactor)) {
+//                System.out.println("Final join provides direct answer, normalizing.");
+//                normalizeFinalFactors();
+//                return;
+//            }
         }
 
         // Normalize the final factor
         normalizeFinalFactors();
     }
+
+    private boolean isDirectAnswer(Factor factor) {
+        System.out.println("Checking keys in factor's probability table...");
+        if (factor.getTableSize() == 2) {
+            boolean foundQueryOutcome = false;
+            String otherKey = null;
+            for (String key : factor.getProbabilityTable().keySet()) {
+                if (key.contains(queryNode.getNodeName() + "=" + queryOutcome)) {
+                    foundQueryOutcome = true;
+                } else {
+                    otherKey = key;
+                }
+            }
+
+            if (foundQueryOutcome && otherKey != null) {
+                // Check if the other key contains exactly one piece of evidence
+                int evidenceCount = 0;
+                for (Node evidenceNode : evidenceNodes) {
+                    if (otherKey.contains(evidenceNode.getNodeName() + "=")) {
+                        evidenceCount++;
+                    }
+                }
+
+                if (evidenceCount == 1) {
+                    System.out.println("Direct answer found with key: " + queryNode.getNodeName() + "=" + queryOutcome + " and one piece of evidence remaining.");
+                    return true; // The factor provides a direct answer to the query
+                }
+            }
+        }
+        return false;
+    }
+
 
     private void resetFactors() {
         factors.clear();

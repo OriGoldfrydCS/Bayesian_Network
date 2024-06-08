@@ -8,13 +8,23 @@ public class Factor implements Comparable<Factor> {
     private Map<String, Double> probabilityTable;       // Represents probabilities, initially based on a conditional probability table
 //    private String uniqueIdentifier;                    // Unique identifier for this factor
     private int factorId; // Simplified unique identifier
+    private static int multiplicationCount = 0;
+    private static int additionCount = 0;
+    private Set<String> variables; // Set to store variable names
+
+
 
     // Constructor to initialize the factor with a probability table and a numeric index
-    public Factor(Map<String, Double> CptTable, List<String> dependencies) {
+    public Factor(Map<String, Double> CptTable, List<String> variables) {
         this.probabilityTable = new HashMap<>(CptTable);
+        this.variables = new HashSet<>(variables); // Initialize variables set
         this.factorId = ++lastAssignedId;  // Increment and assign unique identifier
 //        this.uniqueIdentifier = String.valueOf(id);   // Increment and assign unique identifier
-        this.factorLabel = generateLabel(dependencies);
+        this.factorLabel = generateLabel(variables);
+
+        // Debug print to show the variables being initialized
+        System.out.println("Factor created with ID: " + this.factorId + " and variables: " + this.variables);
+
     }
 
     private String generateLabel(List<String> dependencies) {
@@ -27,6 +37,7 @@ public class Factor implements Comparable<Factor> {
 //    private void updateLabel() {
 //        this.factorLabel = "f(" + factorLabel + ")" + getUniqueIdentifier();
 //    }
+
 
     // Constructor to initialize the factor with a probability table and a specific index
     public Factor(Map<String, Double> initialTable, String label) {
@@ -47,7 +58,7 @@ public class Factor implements Comparable<Factor> {
     }
 
     public String getFactorLabel() {
-        return factorLabel;
+        return "f" + getFactorId() + factorLabel;
     }
 
     public int getTableSize() {
@@ -148,9 +159,11 @@ public class Factor implements Comparable<Factor> {
 
     public static Factor joinFactors(Factor factorA, Factor factorB, Set<String> evidenceVariables) {
         Map<String, Double> newTable = new HashMap<>();
-        Set<String> combinedVariables = combineVariables(factorA, factorB, evidenceVariables);
-        int newId = ++lastAssignedId;  // Ensure new ID is assigned at the time of creating a new factor
-        String newLabel = "f" + newId + "(" + String.join(", ", combinedVariables) + ")";
+        Set<String> combinedVariables = new HashSet<>(factorA.getVariables());
+        combinedVariables.addAll(factorB.getVariables());
+        combinedVariables.removeAll(evidenceVariables);
+
+        String newLabel = "f" + (++lastAssignedId) + "(" + String.join(", ", combinedVariables) + ")";
 
 //        String newLabel = combineLabels(factorA.getFactorLabel(), factorB.getFactorLabel());
 
@@ -163,12 +176,15 @@ public class Factor implements Comparable<Factor> {
                     String newKey = mergeKeys(entryA.getKey(), entryB.getKey());
                     double newProbability = entryA.getValue() * entryB.getValue();
                     newTable.put(newKey, newProbability);
+                    multiplicationCount++;
                     System.out.println("Merging: " + entryA.getKey() + " and " + entryB.getKey() + " -> " + newKey + " = " + newProbability);
+
                 }
             }
         }
+        System.out.println("Performed multiplications Operation. Current count: " + getMultiplicationCount());
 
-        Factor newFactor = new Factor(newTable, newLabel);
+        Factor newFactor = new Factor(newTable, new ArrayList<>(combinedVariables));
         System.out.println("New Factor Created: " + newFactor);
         return newFactor;
     }
@@ -280,20 +296,40 @@ public class Factor implements Comparable<Factor> {
 
     public void eliminateFactor(String variable) {
         Map<String, Double> newTable = new HashMap<>();
+        Map<String, Double> sums = new HashMap<>();
+
         System.out.println("Eliminating variable: " + variable + " from Factor: " + this.factorLabel);
 
         // Group entries by keys minus the eliminated variable and sum their probabilities
         for (Map.Entry<String, Double> entry : this.probabilityTable.entrySet()) {
             String newKey = removeVariableFromKey(entry.getKey(), variable);
-            newTable.merge(newKey, entry.getValue(), Double::sum);
+            double existingProb = sums.getOrDefault(newKey, 0.0);
+            sums.put(newKey, existingProb + entry.getValue());
+            newTable.put(newKey, sums.get(newKey));
         }
 
+        additionCount += sums.size(); // Additions occur when summing up values
+        System.out.println("Additions during elimination: " + sums.size());
+
         this.probabilityTable = newTable;
+        this.variables.remove(variable); // Update variables list
         this.factorLabel = this.factorLabel.replace("," + variable, "").replace(variable + ",", "");
 
         System.out.println("After Elimination, New Factor: " + this);
     }
 
+    public static int getMultiplicationCount() {
+        return multiplicationCount;
+    }
+
+    public static int getAdditionCount() {
+        return additionCount;
+    }
+
+    public static void resetCounts() {
+        multiplicationCount = 0;
+        additionCount = 0;
+    }
 
     private static String removeVariableFromKey(String key, String variable) {
         String[] pairs = key.split(",");
@@ -316,9 +352,19 @@ public class Factor implements Comparable<Factor> {
         }
         if (sum == 0) return;  // Avoid division by zero in case all probabilities are zero
 
+        System.out.println("Total before normalization: " + sum);
+
+
         for (Map.Entry<String, Double> entry : probabilityTable.entrySet()) {
             probabilityTable.put(entry.getKey(), entry.getValue() / sum);
         }
+
+        if (probabilityTable.size() > 1) {
+            additionCount += probabilityTable.size() - 1; // Counting additions needed to sum up probabilities
+            System.out.println("Additions during normalization: " + (probabilityTable.size() - 1));
+
+        }
+
     }
 
     public Set<String> getVariables() {
