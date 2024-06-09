@@ -42,13 +42,6 @@ public class BayesBall {
         traverse(queryNode, null, visited, false, false, network,
                 queryNode, targetNode);
 
-        // Also start traversal from each parent of the query node
-//        for (Node parent : queryNode.getParents()) {
-//            if (!visited.contains(parent)) {
-//                traverse(parent, null, visited, true, false, network, queryNode, targetNode);
-//            }
-//        }
-
         // Check if target node was visited
         return targetNode.isColored() ? "no" : "yes";  // "no" means not independent, "yes" means independent
     }

@@ -28,9 +28,6 @@ public class BayesianNetwork {
         }
     }
 
-//    public Map<String, Node> getNodes() {
-//        return nodes;
-//    }
 
     public Collection<Node> getNodes() {
         return nodes.values();
@@ -62,6 +59,4 @@ public class BayesianNetwork {
             }
         }
     }
-
-
 }
