@@ -1,20 +1,27 @@
 import java.util.*;
-import java.util.stream.Collectors;
-
-public class Node {
-    private String nodeName;
-    private List<Node> children;
-    private List<Node> parents;
-    private List<String> possibleStates;
-    private BayesianNetwork network;
-    private Factor factor;
-    private CPT cpt;
-    private boolean isColored;
-    private boolean isVisitedFromParent;
-    private boolean isVisitedFromChild;
-    private String color;
 
 
+/**
+ * Represents a node in a Bayesian Network.
+ * A node can have parents and children, and it holds a conditional probability table (CPT).
+ */
+public class Node implements Cloneable {
+    private String nodeName;                           // Name of the node
+    private List<Node> children;                       // List of child nodes
+    private List<Node> parents;                        // List of parent nodes
+    private List<String> possibleStates;               // List of possible states for the node
+    private BayesianNetwork network;                   // The Bayesian Network this node belongs to
+    private Factor factor;                             // The factor associated with this node
+    private CPT cpt;                                   // The conditional probability table (CPT) for this node
+    private boolean isColored;                         // Indicates if the node is colored (visited)
+    private boolean isVisitedFromParent;               // Indicates if the node is visited from a parent node
+    private boolean isVisitedFromChild;                // Indicates if the node is visited from a child node
+    private String color;                              // Color of the node (used in algorithms)
+                                                       // NOTE: the last 4 variables are used in BayesBall algo
+    /**
+     * Constructs a Node with the specified name.
+     * @param nodeName The name of the node.
+     */
     public Node(String nodeName) {
         this.nodeName = nodeName;
         this.children = new ArrayList<>();
@@ -24,10 +31,13 @@ public class Node {
         this.isColored = false;
         this.isVisitedFromParent = false;
         this.isVisitedFromChild = false;
-        this.color = "white";  // Default color
-
+        this.color = "white";                   // Default color
     }
 
+    /**
+     * Copy constructor for creating a Node from another Node.
+     * @param other The other Node to copy.
+     */
     public Node(Node other) {
         this.nodeName = other.getNodeName();
         this.parents = new ArrayList<>(other.getParents());
@@ -36,42 +46,67 @@ public class Node {
         this.cpt = new CPT(other.getCPT());
     }
 
-    public Node(String nodeName, List<String> parentNames, BayesianNetwork network) {
-        this.nodeName = nodeName;
-        this.network = network;
-        for (String parentName : parentNames) {
-            Node parentNode = network.getNodeByName(parentName);
-            if (parentNode != null) {
-                this.parents.add(parentNode);
-                parentNode.addChild(this);
-            } else {
-                this.parents.add(new Node(parentName));
-            }
-        }
-    }
-
+    /**
+     * Builds the Conditional Probability Table (CPT) for the node.
+     * @param table Array of probabilities as strings.
+     */
     public void buildCPT(String[] table) {
-        List<List<String>> keys = new ArrayList<>();
         int numParentStates = 1;
+
+        // Calculate the number of possible states for the parent nodes
         for (Node parent : this.parents) {
             numParentStates *= parent.getPossibleStates().size();
         }
+
+        // Calculate the total number of states for this node and its parents
         int totalStates = numParentStates * this.possibleStates.size();
 
-        for (int i = 0; i < totalStates; i++) {
-            int index = i;
-            List<String> key = new ArrayList<>();
+        // Initialize the keys for the CPT
+        List<String> curr_keys = new ArrayList<>(Collections.nCopies(totalStates, ""));
+        if (!this.parents.isEmpty()) {
+            int size_of_steps = curr_keys.size();
             for (Node parent : this.parents) {
-                int parentStateCount = parent.getPossibleStates().size();
-                key.add(parent.getPossibleStates().get(index % parentStateCount));
-                index /= parentStateCount;
+                size_of_steps = size_of_steps / parent.getPossibleStates().size();
+                int k = 0, i = 0, counter = 0;
+
+                // Generate the keys based on parent states
+                while (k < curr_keys.size()) {
+                    if (counter < size_of_steps) {
+                        curr_keys.set(k, curr_keys.get(k) + parent.getPossibleStates().get(i) + ",");
+                        counter++;
+                        k++;
+                    } else {
+                        i++;
+                        i = i % parent.getPossibleStates().size();
+                        counter = 0;
+                    }
+                }
             }
-            key.add(this.possibleStates.get(i / numParentStates % this.possibleStates.size()));
-            Collections.reverse(key);
-            this.cpt.setProbability(key, Double.parseDouble(table[i]));
+        }
+
+        int stateIndex = 0;
+
+        // Append this node's states to the keys
+        for (int i = 0; i < curr_keys.size(); i++) {
+            curr_keys.set(i, curr_keys.get(i) + this.possibleStates.get(stateIndex) + ",");
+            stateIndex = (stateIndex + 1) % this.possibleStates.size();
+        }
+
+        // Fill the CPT with probabilities
+        for (int i = 0; i < curr_keys.size(); i++) {
+            String key = curr_keys.get(i);
+            if (key.endsWith(",")) {
+                key = key.substring(0, key.length() - 1);   // Remove the last comma
+            }
+            List<String> keyComponents = Arrays.asList(key.split(","));
+            this.cpt.setProbability(keyComponents, Double.parseDouble(table[i]));
         }
     }
 
+    /**
+     * Creates a factor for the node using its CPT.
+     * @return A Factor representing the node's CPT.
+     */
     public Factor createFactor() {
         Map<String, Double> probabilityTable = new HashMap<>();
         List<String> dependencies = new ArrayList<>();
@@ -99,223 +134,178 @@ public class Node {
 
             probabilityTable.put(sb.toString(), entry.getValue());
         }
-
         return new Factor(probabilityTable, dependencies);
     }
 
-    private HashMap<String, String> createCPTRow(String probability) {
-        HashMap<String, String> row = new HashMap<>();
-        int totalPossibleStates = possibleStates.size();
-        int stateIndex = 0;
-        for (String state : possibleStates) {
-            row.put(this.nodeName, state);
-            int parentIndex = 0;
-            for (Node parent : parents) {
-                row.put(parent.getNodeName(), parent.getPossibleStates().get(stateIndex % parent.getPossibleStates().size()));
-                stateIndex /= parent.getPossibleStates().size();
-                parentIndex++;
-            }
-            row.put("P", probability);
-            stateIndex++;
-            if (stateIndex >= totalPossibleStates) {
-                break;
-            }
-        }
-        return row;
-    }
-
+    /**
+     * Adds a child node.
+     * @param child The child node to add.
+     */
     public void addChild(Node child) {
         this.children.add(child);
     }
 
-    public void removeChild(Node child) {
-        this.children.remove(child);
-    }
-
+    /**
+     * Adds a parent node.
+     * @param parent The parent node to add.
+     */
     public void addParent(Node parent) {
         this.parents.add(parent);
     }
 
-    public void removeParent(Node parent) {
-        this.parents.remove(parent);
-    }
-
-    public boolean hasParents() {
-        return !this.parents.isEmpty();
-    }
-
-    public boolean hasChildren() {
-        return !this.children.isEmpty();
-    }
-
-    public boolean isProbabilistic() {
-        return !this.cpt.getProbabilityTable().isEmpty();
-    }
-
+    /**
+     * Gets the factor associated with the node.
+     * @return The factor associated with the node.
+     */
     public Factor getFactor() {
         return this.factor;
     }
 
-    public List<String> getVariablePossibleStates() {
-        return possibleStates;
-    }
-
+    /**
+     * Gets the CPT of the node.
+     * @return The CPT of the node.
+     */
     public CPT getCPT() {
         return this.cpt;
     }
 
+    /**
+     * Gets the possible states of the node.
+     * @return A list of possible states.
+     */
     public List<String> getPossibleStates() {
         return this.possibleStates;
     }
 
+    /**
+     * Gets the children of the node.
+     * @return A list of child nodes.
+     */
     public List<Node> getChildren() {
         return this.children;
     }
 
+    /**
+     * Gets the parents of the node.
+     * @return A list of parent nodes.
+     */
     public List<Node> getParents() {
         return this.parents;
     }
 
+    /**
+     * Gets the name of the node.
+     * @return The name of the node.
+     */
     public String getNodeName() {
         return this.nodeName;
     }
 
-    public int getCPTRowCount() {
-        return this.cpt.getProbabilityTable().size();
-    }
-
+    /**
+     * Gets the possible states of the node.
+     * @return A list of possible states.
+     */
     public void addPossibleStates(ArrayList<String> outcomes) {
         this.possibleStates = new ArrayList<>(outcomes);
     }
 
+    /**
+     * Sets the factor associated with the node.
+     * @param factor The factor to set.
+     */
     public void setFactor(Factor factor) {
         this.factor = factor;
     }
 
-    public void setCPTRow(int index, HashMap<String, String> row) {
-        List<String> key = new ArrayList<>();
-        for (Node parent : this.parents) {
-            key.add(row.get(parent.getNodeName()));
-        }
-        key.add(row.get(this.nodeName));
-        this.cpt.setProbability(key, Double.parseDouble(row.get("P")));
-    }
-
-    // Method to add an edge from this node to another (child)
-    public void addEdge(Node child) {
-        if (!this.children.contains(child)) {
-            this.children.add(child);
-            if (!child.parents.contains(this)) {
-                child.parents.add(this);
-            }
-        }
-    }
-    // Setters for visitation states
-    public void visitFromParent() {
-        this.isVisitedFromParent = true;
-    }
-
-    public void visitFromChild() {
-        this.isVisitedFromChild = true;
-    }
-
-    // Checkers for visitation states
-    public boolean isVisitedFromParent() {
-        return isVisitedFromParent;
-    }
-
-    public boolean isVisitedFromChild() {
-        return isVisitedFromChild;
-    }
-
-    // Color handling methods
+    /**
+     * Sets the color of the node.
+     * @param color The color to set.
+     */
     public void setColor(String color) {
         this.color = color;
         this.isColored = true;
     }
 
+    /**
+     * Gets the color of the node.
+     * @return The color of the node.
+     */
     public String getColor() {
         return color;
     }
 
+    /**
+     * Checks if the node is colored (visited).
+     * @return True if colored, false otherwise.
+     */
     public boolean isColored() {
         return isColored;
     }
 
+    /**
+     * Sets the colored state of the node.
+     * @param bool The colored state to set.
+     */
     public void setIsColored(boolean bool){
         this.isColored = bool;
     }
+
+    /**
+     * Returns a string representation of the node.
+     * @return The name of the node.
+     */
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Node's name: ").append(nodeName).append("\n");
-        sb.append("Children: ");
-        for (Node child : children) {
-            sb.append(child.getNodeName());
-            if (children.indexOf(child) < children.size() - 1) {
-                sb.append(", ");
-            }
-        }
-        sb.append("\n");
-        sb.append("Parents: ");
-        for (Node parent : parents) {
-            sb.append(parent.getNodeName());
-            if (parents.indexOf(parent) < parents.size() - 1) {
-                sb.append(", ");
-            }
-        }
-        sb.append("\n");
-        sb.append("Possible States: ");
-        for (String state : possibleStates) {
-            sb.append(state);
-            if (possibleStates.indexOf(state) < possibleStates.size() - 1) {
-                sb.append(", ");
-            }
-        }
-        sb.append("\n");
-        sb.append("CPT:\n");
-
-        // Formatting header according to specific requirements
-        if (!parents.isEmpty()) {
-            for (Node parent : parents) {
-                sb.append("| ").append(parent.getNodeName()).append(" ");
-            }
-        }
-        sb.append("| ").append(nodeName).append(" | P(").append(nodeName);
-        if (!parents.isEmpty()) {
-            sb.append(" | ");
-            for (Node parent : parents) {
-                sb.append(parent.getNodeName());
-                if (parents.indexOf(parent) < parents.size() - 1) {
-                    sb.append(", ");
-                } else {
-                    sb.append(") | \n");
-                }
-            }
-        } else {
-            sb.append(") | \n");
-        }
-
-        // Sorting keys to maintain consistent order from all 'T' to all 'F'
-        Map<List<String>, Double> probTable = this.cpt.getProbabilityTable();
-        List<List<String>> sortedKeys = new ArrayList<>(probTable.keySet());
-        sortedKeys.sort((a, b) -> {
-            for (int i = a.size() - 1; i >= 0; i--) { // Reverse for proper T-F order
-                int comp = b.get(i).compareTo(a.get(i)); // Reverse comparison for T to F
-                if (comp != 0) return comp;
-            }
-            return 0;
-        });
-
-        // Adding rows
-        for (List<String> key : sortedKeys) {
-            sb.append("| ");
-            for (String value : key) {
-                sb.append(value).append(" | ");
-            }
-            sb.append(probTable.get(key)).append(" |\n");
-        }
-        return sb.toString();
+        return this.nodeName;
     }
 
+    /**
+     * Creates a deep clone of the node.
+     * @return A deep clone of the node.
+     */
+    public Node clone() {
+        return deepClone(new HashMap<>());
+    }
+
+    /**
+     * Helper method for creating a deep clone of the node.
+     * @param clonedNodes Map of already cloned nodes to avoid duplication.
+     * @return A deep clone of the node.
+     */
+    Node deepClone(Map<Node, Node> clonedNodes) {
+
+        // Check if this node has already been cloned
+        if (clonedNodes.containsKey(this)) {
+            return clonedNodes.get(this);
+        }
+
+        try {
+            Node clone = (Node) super.clone();      // Create a shallow copy of this node
+            clonedNodes.put(this, clone);           // Store the clone in the map to avoid duplication
+
+            // Deep clone the children
+            clone.children = new ArrayList<>();
+            for (Node child : this.children) {
+                Node clonedChild = child.deepClone(clonedNodes);
+                clone.children.add(clonedChild);
+            }
+
+            // Deep clone the parents
+            clone.parents = new ArrayList<>();
+            for (Node parent : this.parents) {
+                Node clonedParent = parent.deepClone(clonedNodes);
+                clone.parents.add(clonedParent);
+            }
+
+            // Deep clone the possible states, CPT and factors
+            clone.possibleStates = new ArrayList<>(this.possibleStates);
+            clone.cpt = this.cpt.clone();  // Ensure CPT is also cloneable
+            clone.factor = this.factor != null ? this.factor.clone() : null;
+
+            return clone;
+        } catch (CloneNotSupportedException e) {
+            System.out.println("Node clone error");
+            throw new AssertionError();
+        }
+    }
 }
