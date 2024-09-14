@@ -5,7 +5,7 @@ import java.util.*;
 
 
 /**
- * The Ex1 class is the entry point for processing queries on a Bayesian Network.
+ * This class is the entry point for processing queries on a Bayesian Network.
  * It reads the network structure from an XML file and processes a list of queries specified in an input file.
  */
 public class Main {
